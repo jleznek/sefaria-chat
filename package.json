@@ -1,0 +1,73 @@
+{
+  "name": "sefaria",
+  "productName": "Sefaria Chat",
+  "version": "1.0.0",
+  "description": "Explore Jewish texts from the Sefaria digital library, powered by AI",
+  "author": "Sefaria",
+  "license": "MIT",
+  "main": "./dist/main.js",
+  "scripts": {
+    "compile": "npm run check-types && node esbuild.js && npm run copy-renderer",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "copy-renderer": "node -e \"const fs=require('fs');const path=require('path');fs.mkdirSync('dist/renderer',{recursive:true});for(const f of['index.html','styles.css','renderer.js'])fs.copyFileSync(path.join('src/renderer',f),path.join('dist/renderer',f));\"",
+    "build": "npm run compile",
+    "start": "npm run build && electron .",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/genai": "^1.40.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "openai": "^4.97.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.27.2",
+    "eslint": "^9.39.2",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0"
+  },
+  "build": {
+    "appId": "org.sefaria.desktop",
+    "productName": "Sefaria Chat",
+    "icon": "assets/icon.png",
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "!dist/**/*.map"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.reference"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education"
+    }
+  }
+}

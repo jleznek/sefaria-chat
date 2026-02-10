@@ -1,0 +1,16 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Debug Electron Main",
+			"type": "node",
+			"request": "launch",
+			"runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+			"runtimeArgs": ["."],
+			"cwd": "${workspaceFolder}",
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "${defaultBuildTask}",
+			"sourceMaps": true
+		}
+	]
+}

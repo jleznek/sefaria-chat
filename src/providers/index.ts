@@ -1,0 +1,42 @@
+export type { ChatProvider, ProviderInfo, ProviderModel, ToolDeclaration, StreamResult, FunctionCall, Message, MessagePart } from './types';
+export { GEMINI_INFO, GeminiProvider } from './gemini';
+export { OPENAI_INFO, OpenAIProvider } from './openai';
+export { ANTHROPIC_INFO, AnthropicProvider } from './anthropic';
+export { OLLAMA_INFO, OllamaProvider, detectOllamaModels } from './ollama';
+
+import type { ChatProvider, ProviderInfo } from './types';
+import { GEMINI_INFO, GeminiProvider } from './gemini';
+import { OPENAI_INFO, OpenAIProvider } from './openai';
+import { ANTHROPIC_INFO, AnthropicProvider } from './anthropic';
+import { OLLAMA_INFO, OllamaProvider } from './ollama';
+
+/** Static list of all supported providers and their metadata. */
+export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
+    GEMINI_INFO,
+    OPENAI_INFO,
+    ANTHROPIC_INFO,
+    OLLAMA_INFO,
+];
+
+/**
+ * Create a ChatProvider instance for the given provider ID.
+ * Returns null if the provider ID is unrecognized.
+ */
+export function createProvider(
+    providerId: string,
+    apiKey: string,
+    model?: string,
+): ChatProvider | null {
+    switch (providerId) {
+        case 'gemini':
+            return new GeminiProvider(apiKey, model);
+        case 'openai':
+            return new OpenAIProvider(apiKey, model);
+        case 'anthropic':
+            return new AnthropicProvider(apiKey, model);
+        case 'ollama':
+            return new OllamaProvider(apiKey, model);
+        default:
+            return null;
+    }
+}
