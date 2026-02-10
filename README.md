@@ -1,16 +1,27 @@
 # Sefaria Desktop
 
-A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org/) library of Jewish texts, powered by AI (Google Gemini) and [Sefaria's MCP servers](https://developers.sefaria.org/docs/the-sefaria-mcp).
+A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org/) library of Jewish texts, powered by AI and [Sefaria's MCP servers](https://developers.sefaria.org/docs/the-sefaria-mcp).
 
 ## Features
+
+- **Multiple AI providers** — Use cloud models or run entirely offline with local models:
+
+  | Provider | Models | API Key | Notes |
+  |----------|--------|---------|-------|
+  | [Google Gemini](https://aistudio.google.com/apikey) | Gemini 2.5 Flash, 2.5 Pro, etc. | Free tier available | Full tool-calling support |
+  | [OpenAI](https://platform.openai.com/api-keys) | GPT-4o, GPT-4o mini, o3-mini, etc. | Paid | Full tool-calling support |
+  | [Anthropic](https://console.anthropic.com/) | Claude Sonnet 4, Claude Haiku, etc. | Paid | Full tool-calling support |
+  | [Ollama](https://ollama.com/) (local) | Llama, Mistral, Qwen, any model you pull | None — runs locally | No API key or internet needed for the AI; citations are auto-linked |
 
 - **Chat interface** — Ask questions about Jewish texts in natural language
 - **Text lookup** — Look up specific references (e.g., "Genesis 1:1", "Talmud Berakhot 2a")
 - **Library search** — Search across the entire Sefaria library
+- **In-app text viewer** — Click any citation to read the source text in a side pane
 - **API help** — Get guidance for building with the Sefaria API
 - **Streaming responses** with live Markdown rendering
 - **Tool calling** — The AI automatically calls Sefaria MCP tools to retrieve accurate text and citations
-- **Free** — Uses Google Gemini's free API tier (no credit card required)
+- **Print preview** — Generate a PDF preview of your conversation from within the app
+- **Citation auto-linking** — Sefaria text references are automatically hyperlinked, even with local models
 
 ## MCP Servers
 
@@ -23,15 +34,23 @@ The app connects to two Sefaria MCP (Model Context Protocol) servers:
 
 ## Getting Started
 
-1. Get a free [Gemini API key](https://aistudio.google.com/apikey) from Google AI Studio
-2. Install & run:
+1. Install & run:
 
 ```bash
 npm install
 npm start
 ```
 
-3. Enter your API key when prompted — it's stored locally and never shared.
+2. Choose your AI provider from the dropdown and enter an API key (if required).
+   - **Gemini** is a great free option — get a key from [Google AI Studio](https://aistudio.google.com/apikey)
+   - **Ollama** requires no API key — just install [Ollama](https://ollama.com/), pull a model, and select it in the app
+3. Your key is stored locally and never shared.
+
+## Requirements
+
+- Node.js 20+
+- For cloud providers: an API key (Gemini offers a free tier)
+- For offline/local use: [Ollama](https://ollama.com/) installed with at least one model pulled
 
 ## Building Distributable Packages
 
@@ -63,8 +82,3 @@ npx electron .
 
 # Debug in VS Code: press F5 (uses launch.json)
 ```
-
-## Requirements
-
-- Node.js 20+
-- A Google Gemini API key (free from [Google AI Studio](https://aistudio.google.com/apikey))
