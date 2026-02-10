@@ -202,8 +202,37 @@ function extractUIMessages(history: any[]): any[] {
 
 // ── Window ────────────────────────────────────────────────────────────
 
+function getAppIcon(): Electron.NativeImage {
+    // Try multiple paths and formats
+    const assetDirs = [
+        path.join(__dirname, '..', 'assets'),
+        path.join(app.getAppPath(), 'assets'),
+    ];
+    const files = process.platform === 'win32'
+        ? ['icon.ico', 'icon.png']
+        : ['icon.png'];
+
+    for (const dir of assetDirs) {
+        for (const file of files) {
+            const p = path.join(dir, file);
+            try {
+                if (!fs.existsSync(p)) continue;
+                const img = nativeImage.createFromPath(p);
+                if (!img.isEmpty()) {
+                    console.log('[icon] loaded from:', p, 'size:', img.getSize());
+                    return img;
+                }
+            } catch { /* try next */ }
+        }
+    }
+    console.warn('[icon] could not load icon from any path');
+    return nativeImage.createEmpty();
+}
+
 function createWindow(): void {
     Menu.setApplicationMenu(null);
+
+    const appIcon = getAppIcon();
 
     mainWindow = new BrowserWindow({
         width: 960,
@@ -211,7 +240,7 @@ function createWindow(): void {
         minWidth: 600,
         minHeight: 400,
         title: 'Sefaria Chat',
-        icon: nativeImage.createFromPath(path.join(app.getAppPath(), 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png')),
+        icon: appIcon,
         backgroundColor: '#f8f6f1',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -222,6 +251,12 @@ function createWindow(): void {
     });
 
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+    // On Windows in dev mode, the taskbar shows electron.exe's icon.
+    // Use setOverlayIcon to add our app icon as an overlay badge.
+    if (process.platform === 'win32' && !app.isPackaged && !appIcon.isEmpty()) {
+        mainWindow.setOverlayIcon(appIcon, 'Sefaria Chat');
+    }
 
     // Route external links to the embedded webview pane in the renderer
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -605,6 +640,37 @@ function setupIpcHandlers(): void {
         }
         await initMcp();
         return true;
+    });
+
+    ipcMain.handle('print-chat', async (_event, { html }: { html: string }) => {
+        if (!mainWindow) return;
+        // Generate a PDF from the chat content, save to temp, and open
+        // it in the app's embedded webview pane for preview + printing.
+        const printWin = new BrowserWindow({
+            show: false,
+            width: 800,
+            height: 600,
+            webPreferences: { contextIsolation: true, nodeIntegration: false },
+        });
+
+        try {
+            await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+            const pdfData = await printWin.webContents.printToPDF({
+                printBackground: true,
+                margins: { marginType: 'default' },
+            });
+            printWin.close();
+
+            const tmpPath = path.join(app.getPath('temp'), `sefaria-chat-${Date.now()}.pdf`);
+            fs.writeFileSync(tmpPath, pdfData);
+
+            // Open the PDF in the app's embedded webview pane
+            const fileUrl = `file://${tmpPath.replace(/\\/g, '/')}`;
+            mainWindow.webContents.send('open-url', fileUrl);
+        } catch (err) {
+            console.error('[print] failed:', err);
+            printWin.close();
+        }
     });
 }
 

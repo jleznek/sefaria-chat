@@ -52,6 +52,122 @@ let providers = [];
 let activeProviderId = 'gemini';
 let activeModelId = '';
 
+// ── Auto-linkify bare Sefaria citations ───────────────────────────────
+/**
+ * Detect bare text references (e.g. "Genesis 1:1", "Berakhot 2a") in
+ * markdown and wrap them in Sefaria links.  Already-linked references
+ * and inline code spans are left untouched.
+ */
+function linkifyCitations(md) {
+    /** Protect existing markdown links & code so we don't double-link. */
+    function protect(text) {
+        const saved = [];
+        const s = text.replace(/\[([^\]]*)\]\([^)]*\)|`[^`]+`/g, (m) => {
+            saved.push(m);
+            return `\x00S${saved.length - 1}\x00`;
+        });
+        return { text: s, saved };
+    }
+    function restore(text, saved) {
+        let s = text;
+        for (let i = 0; i < saved.length; i++) {
+            s = s.replace(`\x00S${i}\x00`, () => saved[i]);
+        }
+        return s;
+    }
+    /** Build a Sefaria URL from a reference string. */
+    function sefUrl(ref) {
+        return 'https://www.sefaria.org/' + ref.trim().replace(/ /g, '_').replace(/:/g, '.');
+    }
+    /** Run one linkification regex, protecting existing links each time. */
+    function pass(text, regex) {
+        const { text: s, saved } = protect(text);
+        const out = s.replace(regex, (match) => `[${match}](${sefUrl(match)})`);
+        return restore(out, saved);
+    }
+
+    // ── Pattern building ──────────────────────────────────────────────
+    const commentators = [
+        'Siftei Chakhamim', 'Or HaChaim', 'Kli Yakar',
+        'Ibn Ezra', 'Tosafot', 'Rashbam', 'Onkelos', 'Sforno',
+        'Ramban', 'Rashi',
+    ].join('|');
+
+    const tractates = [
+        'Rosh Hashanah', 'Avodah Zarah', 'Moed Katan',
+        'Bava Kamma', 'Bava Metzia', 'Bava Batra',
+        'Berakhot', 'Pesachim', 'Shekalim', 'Chagigah',
+        'Yevamot', 'Ketubot', 'Kiddushin', 'Sanhedrin',
+        'Menachot', 'Bekhorot', 'Shabbat', 'Eruvin',
+        'Sukkah', 'Beitzah', 'Taanit', 'Megillah',
+        'Nedarim', 'Shevuot', 'Horayot', 'Zevachim',
+        'Chullin', 'Arakhin', 'Temurah', 'Keritot',
+        'Meilah', 'Makkot', 'Gittin', 'Nazir', 'Sotah',
+        'Tamid', 'Niddah', 'Yoma',
+    ].join('|');
+
+    const tanakhBooks = [
+        'Song of Songs', 'Shir HaShirim',
+        'Deuteronomy', 'Ecclesiastes', 'Lamentations',
+        'I Chronicles', 'II Chronicles', '1 Chronicles', '2 Chronicles',
+        'I Samuel', 'II Samuel', '1 Samuel', '2 Samuel',
+        'I Kings', 'II Kings', '1 Kings', '2 Kings',
+        'Leviticus', 'Yeshayahu', 'Yirmiyahu', 'Yechezkel',
+        'Bereishit', 'Bereshit', 'Habakkuk', 'Zephaniah',
+        'Zechariah', 'Nehemiah', 'Jeremiah',
+        'Genesis', 'Exodus', 'Numbers', 'Shemot', 'Vayikra',
+        'Bamidbar', 'Devarim', 'Joshua', 'Judges', 'Isaiah',
+        'Ezekiel', 'Psalms', 'Proverbs', 'Esther', 'Daniel',
+        'Malachi', 'Haggai', 'Obadiah', 'Tehillim', 'Mishlei',
+        'Kohelet', 'Yehoshua', 'Shoftim',
+        'Hosea', 'Micah', 'Nahum', 'Jonah', 'Eicha',
+        'Joel', 'Amos', 'Ruth', 'Ezra', 'Job',
+    ].join('|');
+
+    const otherWorks = [
+        'Pirkei DeRabbi Eliezer', 'Midrash Tanchuma',
+        'Beresheet Rabbah', 'Shemot Rabbah', 'Vayikra Rabbah',
+        'Bamidbar Rabbah', 'Devarim Rabbah',
+        'Mishnah Berakhot', 'Mishnah Shabbat', 'Mishnah Pesachim',
+        'Mishnah Yoma', 'Mishnah Sukkah', 'Mishnah Taanit',
+        'Mishnah Megillah', 'Mishnah Sanhedrin', 'Mishnah Avot',
+        'Shulchan Arukh', 'Mishneh Torah',
+        'Pirkei Avot', 'Avot',
+    ].join('|');
+
+    let s = md;
+
+    // 1. "Commentator on Book Chapter:Verse"
+    const commentRe = new RegExp(
+        `((?:${commentators})\\s+on\\s+[A-Z][A-Za-z]+(?:\\s+[A-Za-z]+)*\\s+\\d+[:\\.]\\d+(?:[\\-\u2013]\\d+)?)`,
+        'g'
+    );
+    s = pass(s, commentRe);
+
+    // 2. Talmud daf: "Tractate 2a" or "Tractate 2a-2b"
+    const talmudRe = new RegExp(
+        `((?:${tractates})\\s+\\d+[ab](?:[\\-\u2013]\\d+[ab])?)`,
+        'g'
+    );
+    s = pass(s, talmudRe);
+
+    // 3. Tanakh: "Book Chapter:Verse" (or Chapter.Verse)
+    const tanakhRe = new RegExp(
+        `((?:${tanakhBooks})\\s+\\d+[:\\.]\\d+(?:[\\-\u2013]\\d+)?)`,
+        'g'
+    );
+    s = pass(s, tanakhRe);
+
+    // 4. Other works: "Work Chapter:Verse"
+    const otherRe = new RegExp(
+        `((?:${otherWorks})\\s+\\d+[:\\.]\\d+(?:[\\-\u2013]\\d+)?)`,
+        'g'
+    );
+    s = pass(s, otherRe);
+
+    return s;
+}
+
 // ── Markdown helper (uses the `marked` library loaded via CDN) ────────
 function renderMarkdown(text) {
     if (typeof marked !== 'undefined' && marked.parse) {
@@ -61,7 +177,7 @@ function renderMarkdown(text) {
             const titleAttr = title ? ` title="${title}"` : '';
             return `<a href="${href}"${titleAttr} data-external="true">${text}</a>`;
         };
-        return marked.parse(text, { breaks: true, renderer });
+        return marked.parse(linkifyCitations(text), { breaks: true, renderer });
     }
     // Fallback: escape HTML and convert newlines
     return text
@@ -486,7 +602,26 @@ settingsBtn.addEventListener('click', toggleSettings);
 // Print chat conversation
 const printBtn = /** @type {HTMLButtonElement} */ (document.getElementById('print-btn'));
 printBtn.addEventListener('click', () => {
-    window.print();
+    // Build a standalone HTML document with the chat messages for printing
+    const msgs = messagesDiv.cloneNode(true);
+    // Remove non-printable elements
+    msgs.querySelectorAll('.follow-ups, .tool-indicators, .thinking-indicator').forEach(el => el.remove());
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sefaria Chat</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; color: #333; }
+  .message { margin-bottom: 20px; }
+  .message-user .message-content { background: #18345d; color: #fff; padding: 10px 14px; border-radius: 12px; display: inline-block; }
+  .message-assistant .message-content { background: #f0ede6; padding: 12px 16px; border-radius: 12px; }
+  .message-avatar { font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #666; }
+  .message-assistant .message-avatar svg { display: none; }
+  a { color: #18345d; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 6px; overflow-x: auto; }
+  code { font-size: 0.9em; }
+  blockquote { border-left: 3px solid #ccb479; padding-left: 12px; margin-left: 0; color: #555; }
+  h1,h2,h3 { color: #18345d; }
+  .welcome-message, .follow-ups, .tool-indicators { display: none; }
+</style></head><body>${msgs.innerHTML}</body></html>`;
+    api.printChat(html);
 });
 
 reconnectBtn.addEventListener('click', async () => {
