@@ -168,6 +168,29 @@ function linkifyCitations(md) {
     return s;
 }
 
+// ── Mermaid setup ─────────────────────────────────────────────────────
+if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+}
+let mermaidIdCounter = 0;
+
+/**
+ * Render a Mermaid code block into an SVG diagram.
+ * Returns an HTML string with the rendered diagram or the raw code on failure.
+ */
+async function renderMermaidBlock(code) {
+    if (typeof mermaid === 'undefined') {
+        return `<pre><code class="language-mermaid">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+    }
+    const id = `mermaid-${++mermaidIdCounter}`;
+    try {
+        const { svg } = await mermaid.render(id, code);
+        return `<div class="mermaid-diagram">${svg}</div>`;
+    } catch {
+        return `<pre><code class="language-mermaid">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+    }
+}
+
 // ── Markdown helper (uses the `marked` library loaded via CDN) ────────
 function renderMarkdown(text) {
     if (typeof marked !== 'undefined' && marked.parse) {
@@ -177,7 +200,35 @@ function renderMarkdown(text) {
             const titleAttr = title ? ` title="${title}"` : '';
             return `<a href="${href}"${titleAttr} data-external="true">${text}</a>`;
         };
-        return marked.parse(linkifyCitations(text), { breaks: true, renderer });
+        // Collect mermaid blocks and replace with placeholders for async rendering
+        const mermaidBlocks = [];
+        const originalCode = renderer.code;
+        renderer.code = function({ text: codeText, lang }) {
+            if (lang === 'mermaid') {
+                const placeholder = `<!--MERMAID_PLACEHOLDER_${mermaidBlocks.length}-->`;
+                mermaidBlocks.push(codeText);
+                return placeholder;
+            }
+            if (originalCode) {
+                return originalCode.call(this, { text: codeText, lang });
+            }
+            const escaped = codeText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<pre><code class="language-${lang || ''}">${escaped}</code></pre>`;
+        };
+        let html = marked.parse(linkifyCitations(text), { breaks: true, renderer });
+        // If there were mermaid blocks, schedule async rendering
+        if (mermaidBlocks.length > 0) {
+            // Store the blocks for post-render processing
+            html = html.replace(/data-mermaid-pending/g, '');
+            for (let i = 0; i < mermaidBlocks.length; i++) {
+                const placeholder = `<!--MERMAID_PLACEHOLDER_${i}-->`;
+                const tempId = `mermaid-pending-${mermaidIdCounter + i + 1}`;
+                html = html.replace(placeholder,
+                    `<div class="mermaid-diagram" id="${tempId}" data-mermaid-src="${encodeURIComponent(mermaidBlocks[i])}">` +
+                    `<div class="mermaid-loading">Rendering diagram…</div></div>`);
+            }
+        }
+        return html;
     }
     // Fallback: escape HTML and convert newlines
     return text
@@ -185,6 +236,26 @@ function renderMarkdown(text) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>');
+}
+
+/**
+ * Post-process rendered HTML to render any pending Mermaid diagrams.
+ * Call this after setting innerHTML with renderMarkdown output.
+ */
+async function renderPendingMermaid(container) {
+    if (typeof mermaid === 'undefined') return;
+    const pendingDivs = container.querySelectorAll('.mermaid-diagram[data-mermaid-src]');
+    for (const div of pendingDivs) {
+        const src = decodeURIComponent(div.getAttribute('data-mermaid-src'));
+        div.removeAttribute('data-mermaid-src');
+        const id = `mermaid-${++mermaidIdCounter}`;
+        try {
+            const { svg } = await mermaid.render(id, src);
+            div.innerHTML = svg;
+        } catch {
+            div.innerHTML = `<pre><code class="language-mermaid">${src.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+        }
+    }
 }
 
 // ── Scrolling ─────────────────────────────────────────────────────────
@@ -354,6 +425,7 @@ function createAssistantMessage() {
             hideThinking();
             rawText += chunk;
             contentDiv.innerHTML = renderMarkdown(rawText);
+            renderPendingMermaid(contentDiv);
             scrollToBottom();
         },
         addToolIndicator(toolName) {
@@ -401,6 +473,7 @@ function createAssistantMessage() {
             // Re-render final markdown to pick up any partial flush
             if (rawText) {
                 contentDiv.innerHTML = renderMarkdown(rawText);
+                renderPendingMermaid(contentDiv);
             }
             scrollToBottom();
         }

@@ -447,7 +447,14 @@ function setupIpcHandlers(): void {
         const status = (err as { status?: number }).status;
 
         // Rate limit / quota exceeded
-        if (status === 429 || raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED') || raw.includes('rate_limit') || raw.includes('quota')) {
+        // Be precise: only match genuine rate-limit or quota errors, not generic resource issues
+        const isRateLimit = status === 429
+            || raw.includes('rate_limit')
+            || raw.includes('Too Many Requests')
+            || (raw.includes('RESOURCE_EXHAUSTED') && (raw.includes('rate') || raw.includes('quota') || raw.includes('RPM') || raw.includes('QPM') || raw.includes('requests per') || raw.includes('PerMinute') || raw.includes('PerDay')))
+            || raw.includes('insufficient_quota');
+
+        if (isRateLimit) {
             // Distinguish daily quota vs per-minute rate limit
             if (raw.includes('PerDay') || raw.includes('per_day')) {
                 return {
@@ -463,6 +470,14 @@ function setupIpcHandlers(): void {
                 : 'Please wait a minute and try again.';
             return {
                 error: `You\u2019ve hit the API rate limit. ${waitMsg} You can also switch to a different model.`,
+                retryable: true,
+            };
+        }
+
+        // Generic resource exhaustion (e.g. output token limit, content too long)
+        if (raw.includes('RESOURCE_EXHAUSTED')) {
+            return {
+                error: 'The response was too large for this model\u2019s limits. Try a shorter question or switch to a different model.',
                 retryable: true,
             };
         }

@@ -27,7 +27,13 @@ Formatting:
     - Rashi on Genesis 9:21 → [Rashi on Genesis 9:21](https://www.sefaria.org/Rashi_on_Genesis.9.21)
     - Talmud Sanhedrin 70a → [Sanhedrin 70a](https://www.sefaria.org/Sanhedrin.70a)
     - Beresheet Rabbah 36:4 → [Beresheet Rabbah 36:4](https://www.sefaria.org/Beresheet_Rabbah.36.4)
-  Always use markdown link syntax so the user can click through to read the full passage on Sefaria.`;
+  Always use markdown link syntax so the user can click through to read the full passage on Sefaria.
+
+Diagrams:
+- When asked to create a diagram, flowchart, timeline, or visual representation, use Mermaid syntax inside a fenced code block with the language tag \`mermaid\`.
+- Example: \`\`\`mermaid\\ngraph TD\\n  A[Start] --> B[End]\\n\`\`\`
+- Supported diagram types: flowchart, timeline, sequence, mindmap, graph, and more.
+- NEVER use markdown image syntax (![...](url)) for diagrams. Always use Mermaid code blocks.`;
 
 export const TEXT_PROMPT = `The user wants to look up or explore a specific Jewish text reference. Use Sefaria tools to retrieve the exact text. Always:
 - Present the Hebrew/Aramaic original alongside the English translation.
