@@ -16,8 +16,6 @@ jobs:
         include:
           - os: windows-latest
             cmd: npm run dist:win
-          - os: macos-latest
-            cmd: npm run dist:mac
 
     runs-on: ${{ matrix.os }}
 
@@ -39,7 +37,6 @@ jobs:
           name: dist-${{ matrix.os }}
           path: |
             release/*.exe
-            release/*.dmg
             release/*.zip
           if-no-files-found: ignore
 

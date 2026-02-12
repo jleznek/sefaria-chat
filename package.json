@@ -21,7 +21,7 @@
     "lint": "eslint src",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "echo macOS build disabled",
     "dist:linux": "echo Linux build disabled"
   },
   "dependencies": {
