@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, screen, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { autoUpdater } from 'electron-updater';
 import { McpClientManager } from './mcp-client';
 import { ChatEngine } from './chat-engine';
 import { createProvider, AVAILABLE_PROVIDERS, detectOllamaModels } from './providers';
@@ -689,12 +690,73 @@ function setupIpcHandlers(): void {
     });
 }
 
+// ── Auto-updater ─────────────────────────────────────────────────────
+
+function setupAutoUpdater(): void {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('checking-for-update', () => {
+        console.log('[updater] checking for update…');
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        console.log('[updater] update available:', info.version);
+        mainWindow?.webContents.send('update-status', {
+            status: 'downloading',
+            version: info.version,
+        });
+    });
+
+    autoUpdater.on('update-not-available', () => {
+        console.log('[updater] app is up to date');
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+        mainWindow?.webContents.send('update-status', {
+            status: 'downloading',
+            percent: Math.round(progress.percent),
+        });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('[updater] update downloaded:', info.version);
+        mainWindow?.webContents.send('update-status', {
+            status: 'ready',
+            version: info.version,
+        });
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('[updater] error:', err.message);
+    });
+
+    ipcMain.handle('install-update', () => {
+        autoUpdater.quitAndInstall();
+    });
+
+    ipcMain.handle('check-for-updates', async () => {
+        try {
+            const result = await autoUpdater.checkForUpdates();
+            return { version: result?.updateInfo?.version || null };
+        } catch {
+            return { version: null };
+        }
+    });
+}
+
 // ── App lifecycle ────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
     createWindow();
     setupIpcHandlers();
+    setupAutoUpdater();
     await initMcp();
+
+    // Check for updates after startup (delay to avoid slowing launch)
+    setTimeout(() => {
+        autoUpdater.checkForUpdates().catch(() => { /* ignore */ });
+    }, 5000);
 });
 
 app.on('window-all-closed', async () => {

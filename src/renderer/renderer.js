@@ -1105,6 +1105,34 @@ splitHandle.addEventListener('mousedown', (e) => {
     document.addEventListener('mouseup', onMouseUp);
 });
 
+// ── Auto-update UI ────────────────────────────────────────────────────
+const updateBar = /** @type {HTMLDivElement} */ (document.getElementById('update-bar'));
+const updateText = /** @type {HTMLSpanElement} */ (document.getElementById('update-text'));
+const updateAction = /** @type {HTMLButtonElement} */ (document.getElementById('update-action'));
+const updateDismiss = /** @type {HTMLButtonElement} */ (document.getElementById('update-dismiss'));
+
+api.onUpdateStatus((data) => {
+    if (data.status === 'downloading') {
+        updateBar.classList.remove('hidden');
+        const pct = data.percent != null ? ` (${data.percent}%)` : '';
+        updateText.textContent = `Downloading update${data.version ? ' v' + data.version : ''}${pct}\u2026`;
+        updateAction.style.display = 'none';
+    } else if (data.status === 'ready') {
+        updateBar.classList.remove('hidden');
+        updateText.textContent = `Update${data.version ? ' v' + data.version : ''} ready`;
+        updateAction.style.display = '';
+        updateAction.textContent = 'Restart to update';
+    }
+});
+
+updateAction.addEventListener('click', () => {
+    api.installUpdate();
+});
+
+updateDismiss.addEventListener('click', () => {
+    updateBar.classList.add('hidden');
+});
+
 // ── Initialization ────────────────────────────────────────────────────
 (async function init() {
     // Load available providers

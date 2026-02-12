@@ -66,6 +66,11 @@ export interface SefariaApi {
     getUsageStats(): Promise<{ used: number; limit: number; resetsInSeconds: number }>;
     resizeForWebview(open: boolean): Promise<void>;
     printChat(html: string): Promise<void>;
+
+    // Auto-update
+    onUpdateStatus(callback: (data: { status: string; version?: string; percent?: number }) => void): void;
+    installUpdate(): Promise<void>;
+    checkForUpdates(): Promise<{ version: string | null }>;
 }
 
 contextBridge.exposeInMainWorld('sefaria', {
@@ -128,4 +133,11 @@ contextBridge.exposeInMainWorld('sefaria', {
     getUsageStats: () => ipcRenderer.invoke('get-usage-stats'),
     resizeForWebview: (open: boolean) => ipcRenderer.invoke('resize-for-webview', open),
     printChat: (html: string) => ipcRenderer.invoke('print-chat', { html }),
+
+    // Auto-update
+    onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number }) => void) => {
+        ipcRenderer.on('update-status', (_event, data) => callback(data));
+    },
+    installUpdate: () => ipcRenderer.invoke('install-update'),
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 } satisfies SefariaApi);
