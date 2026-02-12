@@ -732,7 +732,11 @@ function setupAutoUpdater(): void {
     });
 
     ipcMain.handle('install-update', () => {
-        autoUpdater.quitAndInstall();
+        // Force quit all windows and restart with the new version.
+        // setImmediate ensures the IPC reply is sent before quitting.
+        setImmediate(() => {
+            autoUpdater.quitAndInstall(false, true);
+        });
     });
 
     ipcMain.handle('check-for-updates', async () => {
