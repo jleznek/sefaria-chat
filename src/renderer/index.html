@@ -119,21 +119,50 @@
             <div id="history-list" class="history-list"></div>
         </div>
 
-        <!-- Settings panel (hidden by default) -->
+        <!-- Settings page (hidden by default, replaces chat content) -->
         <div id="settings-panel" class="hidden">
-            <div class="settings-content">
-                <label>AI Provider &amp; Model</label>
-                <div class="settings-provider-row">
-                    <select id="settings-provider" class="provider-select"></select>
-                    <select id="settings-model" class="provider-select model-select"></select>
+            <div class="settings-page">
+                <div class="settings-page-header">
+                    <h2>Settings</h2>
+                    <button id="settings-close-btn" class="settings-back-btn" title="Back to chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
                 </div>
-                <label for="settings-api-key">API Key</label>
-                <div class="setup-input-group">
-                    <input type="password" id="settings-api-key" placeholder="Enter new key..." autocomplete="off">
-                    <button id="settings-save-btn">Save</button>
+                <div class="settings-content">
+                    <div class="settings-section">
+                        <h3>Activated Providers</h3>
+                        <div id="activated-providers" class="activated-providers"></div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>AI Provider &amp; Model</h3>
+                        <div class="settings-provider-row">
+                            <select id="settings-provider" class="provider-select"></select>
+                            <select id="settings-model" class="provider-select model-select"></select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>API Key</h3>
+                        <div class="setup-input-group">
+                            <input type="password" id="settings-api-key" placeholder="Enter new key..." autocomplete="off">
+                            <button id="settings-save-btn">Save</button>
+                        </div>
+                        <p id="settings-key-hint" class="settings-key-hint"></p>
+                    </div>
+                    <div class="settings-section">
+                        <h3>Connection</h3>
+                        <button id="reconnect-btn" class="secondary-btn">Reconnect MCP Servers</button>
+                    </div>
+                    <div class="settings-section">
+                        <h3>Updates</h3>
+                        <div class="settings-update-row">
+                            <button id="check-updates-btn" class="secondary-btn">Check for Updates</button>
+                            <span id="update-check-status" class="update-check-status"></span>
+                        </div>
+                        <p class="settings-version">Version <span id="app-version"></span></p>
+                    </div>
                 </div>
-                <p id="settings-key-hint" class="settings-key-hint"></p>
-                <button id="reconnect-btn" class="secondary-btn">Reconnect MCP Servers</button>
             </div>
         </div>
 

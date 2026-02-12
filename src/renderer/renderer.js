@@ -323,7 +323,14 @@ function hideSetup() {
 }
 
 function toggleSettings() {
+    const isOpening = settingsPanel.classList.contains('hidden');
     settingsPanel.classList.toggle('hidden');
+    // Hide/show chat content so settings takes the full area
+    chatContainer.classList.toggle('hidden', isOpening);
+    document.getElementById('input-area').classList.toggle('hidden', isOpening);
+    document.getElementById('rate-limit-bar').classList.toggle('hidden', isOpening);
+    document.getElementById('donate-bar').classList.toggle('hidden', isOpening);
+    if (isOpening) refreshActivatedProviders();
 }
 
 function clearWelcome() {
@@ -672,6 +679,14 @@ async function resetToWelcome() {
 
 settingsBtn.addEventListener('click', toggleSettings);
 
+// Close settings page
+const settingsCloseBtn = /** @type {HTMLButtonElement} */ (document.getElementById('settings-close-btn'));
+settingsCloseBtn.addEventListener('click', () => {
+    if (!settingsPanel.classList.contains('hidden')) {
+        toggleSettings();
+    }
+});
+
 // Print chat conversation
 const printBtn = /** @type {HTMLButtonElement} */ (document.getElementById('print-btn'));
 printBtn.addEventListener('click', () => {
@@ -745,9 +760,11 @@ settingsSave.addEventListener('click', async () => {
     activeProviderId = providerId;
     activeModelId = modelId;
     settingsApiKey.value = '';
-    toggleSettings();
+    // Don't close settings — let user close manually
     // Refresh the model picker (new keys may have been added)
     await refreshModelPicker();
+    // Refresh activated providers list
+    await refreshActivatedProviders();
     // Refresh rate limit bar with new provider limits
     try {
         const stats = await api.getUsageStats();
@@ -1133,6 +1150,63 @@ updateDismiss.addEventListener('click', () => {
     updateBar.classList.add('hidden');
 });
 
+// ── Check for updates button in Settings ──────────────────────────────
+const checkUpdatesBtn = /** @type {HTMLButtonElement} */ (document.getElementById('check-updates-btn'));
+const updateCheckStatus = /** @type {HTMLSpanElement} */ (document.getElementById('update-check-status'));
+
+checkUpdatesBtn.addEventListener('click', async () => {
+    checkUpdatesBtn.disabled = true;
+    updateCheckStatus.textContent = 'Checking…';
+    updateCheckStatus.className = 'update-check-status';
+    try {
+        const result = await api.checkForUpdates();
+        if (result.version) {
+            updateCheckStatus.textContent = `Update v${result.version} available!`;
+            updateCheckStatus.className = 'update-check-status';
+        } else {
+            updateCheckStatus.textContent = 'You\u2019re up to date.';
+            updateCheckStatus.className = 'update-check-status success';
+        }
+    } catch {
+        updateCheckStatus.textContent = 'Could not check for updates.';
+        updateCheckStatus.className = 'update-check-status';
+    }
+    checkUpdatesBtn.disabled = false;
+});
+
+// ── Activated providers display ───────────────────────────────────────
+async function refreshActivatedProviders() {
+    const container = document.getElementById('activated-providers');
+    if (!container) return;
+    try {
+        const configured = await api.getConfiguredProviders();
+        container.innerHTML = '';
+        for (const p of configured) {
+            const isActive = p.id === activeProviderId;
+            const hasKey = p.hasKey;
+            const item = document.createElement('div');
+            item.className = 'provider-status-item' + (isActive ? ' active' : '');
+
+            const iconClass = hasKey ? 'configured' : 'not-configured';
+            const iconSymbol = hasKey ? '\u2713' : '\u2014';
+            const badgeClass = hasKey ? 'configured' : 'not-configured';
+            const badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
+            const detail = hasKey
+                ? (p.requiresKey === false ? 'Local \u2014 no key needed' : 'API key saved')
+                : 'Add an API key to activate';
+
+            item.innerHTML = `
+                <div class="provider-status-icon ${iconClass}">${iconSymbol}</div>
+                <div class="provider-status-info">
+                    <div class="provider-status-name">${escapeHtml(p.name)}</div>
+                    <div class="provider-status-detail">${escapeHtml(detail)}</div>
+                </div>
+                <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>`;
+            container.appendChild(item);
+        }
+    } catch { /* ignore */ }
+}
+
 // ── Initialization ────────────────────────────────────────────────────
 (async function init() {
     // Load available providers
@@ -1212,5 +1286,11 @@ updateDismiss.addEventListener('click', () => {
     try {
         const stats = await api.getUsageStats();
         updateRateLimitBar(stats);
+    } catch { /* ignore */ }
+
+    // Show app version in settings
+    try {
+        const ver = await api.getAppVersion();
+        document.getElementById('app-version').textContent = ver;
     } catch { /* ignore */ }
 })();

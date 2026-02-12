@@ -743,6 +743,10 @@ function setupAutoUpdater(): void {
             return { version: null };
         }
     });
+
+    ipcMain.handle('get-app-version', () => {
+        return app.getVersion();
+    });
 }
 
 // ── App lifecycle ────────────────────────────────────────────────────
