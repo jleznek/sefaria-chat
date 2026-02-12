@@ -1185,7 +1185,7 @@ async function refreshActivatedProviders() {
             const isActive = p.id === activeProviderId;
             const hasKey = p.hasKey;
             const item = document.createElement('div');
-            item.className = 'provider-status-item' + (isActive ? ' active' : '');
+            item.className = 'provider-status-item' + (isActive ? ' active' : '') + (hasKey ? ' clickable' : '');
 
             const iconClass = hasKey ? 'configured' : 'not-configured';
             const iconSymbol = hasKey ? '\u2713' : '\u2014';
@@ -1193,7 +1193,7 @@ async function refreshActivatedProviders() {
             const badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
             const detail = hasKey
                 ? (p.requiresKey === false ? 'Local \u2014 no key needed' : 'API key saved')
-                : 'Add an API key to activate';
+                : 'Add an API key below to activate';
 
             item.innerHTML = `
                 <div class="provider-status-icon ${iconClass}">${iconSymbol}</div>
@@ -1201,7 +1201,47 @@ async function refreshActivatedProviders() {
                     <div class="provider-status-name">${escapeHtml(p.name)}</div>
                     <div class="provider-status-detail">${escapeHtml(detail)}</div>
                 </div>
-                <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>`;
+                <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+                ${hasKey && p.requiresKey !== false ? '<button class="provider-remove-btn" title="Remove provider">&times;</button>' : ''}`;
+
+            // Click a configured provider to make it the default
+            if (hasKey && !isActive) {
+                item.addEventListener('click', async (e) => {
+                    if (/** @type {HTMLElement} */ (e.target).closest('.provider-remove-btn')) return;
+                    const defaultModel = p.defaultModel || (p.models && p.models[0] ? p.models[0].id : '');
+                    const result = await api.switchProvider(p.id, defaultModel);
+                    if (!result.error) {
+                        activeProviderId = p.id;
+                        activeModelId = defaultModel;
+                        await refreshModelPicker();
+                        await refreshActivatedProviders();
+                        try {
+                            const stats = await api.getUsageStats();
+                            updateRateLimitBar(stats);
+                        } catch { /* ignore */ }
+                    }
+                });
+            }
+
+            // Remove button handler
+            const removeBtn = item.querySelector('.provider-remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const result = await api.removeProviderKey(p.id);
+                    if (result.switchedTo) {
+                        activeProviderId = result.switchedTo;
+                        activeModelId = result.modelId || '';
+                    }
+                    await refreshModelPicker();
+                    await refreshActivatedProviders();
+                    try {
+                        const stats = await api.getUsageStats();
+                        updateRateLimitBar(stats);
+                    } catch { /* ignore */ }
+                });
+            }
+
             container.appendChild(item);
         }
     } catch { /* ignore */ }

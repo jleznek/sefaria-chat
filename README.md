@@ -2,6 +2,10 @@
 
 A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org/) library of Jewish texts, powered by AI and [Sefaria's MCP servers](https://developers.sefaria.org/docs/the-sefaria-mcp).
 
+> **Disclaimer:** This application is not developed by, affiliated with, or endorsed by [Sefaria.org](https://www.sefaria.org/). It is an independent project that uses Sefaria's publicly available MCP (Model Context Protocol) servers.
+>
+> &copy; 2025 Jason Leznek. Released under the MIT License.
+
 ## Features
 
 - **Multiple AI providers** — Use cloud models or run entirely offline with local models:

@@ -50,6 +50,7 @@
                 <button id="setup-save-btn">Get Started</button>
             </div>
             <p class="setup-hint">Your key is stored locally and never shared. Get a key from <a id="setup-key-link" href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a>.</p>
+            <p class="setup-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>. It uses Sefaria's publicly available <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP servers</a>.<br>&copy; 2025 Jason Leznek</p>
         </div>
     </div><!-- end setup-overlay -->
 
@@ -132,19 +133,17 @@
                 </div>
                 <div class="settings-content">
                     <div class="settings-section">
-                        <h3>Activated Providers</h3>
+                        <h3>Active Providers</h3>
+                        <p class="settings-section-hint">Click a configured provider to make it the default.</p>
                         <div id="activated-providers" class="activated-providers"></div>
                     </div>
                     <div class="settings-section">
-                        <h3>AI Provider &amp; Model</h3>
+                        <h3>Add a Provider</h3>
                         <div class="settings-provider-row">
                             <select id="settings-provider" class="provider-select"></select>
                             <select id="settings-model" class="provider-select model-select"></select>
                         </div>
-                    </div>
-                    <div class="settings-section">
-                        <h3>API Key</h3>
-                        <div class="setup-input-group">
+                        <div class="setup-input-group" style="margin-top: 12px;">
                             <input type="password" id="settings-api-key" placeholder="Enter new key..." autocomplete="off">
                             <button id="settings-save-btn">Save</button>
                         </div>
@@ -161,6 +160,7 @@
                             <span id="update-check-status" class="update-check-status"></span>
                         </div>
                         <p class="settings-version">Version <span id="app-version"></span></p>
+                        <p class="settings-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>.<br>It uses Sefaria's publicly available MCP servers.<br>&copy; 2025 Jason Leznek</p>
                     </div>
                 </div>
             </div>
@@ -214,6 +214,7 @@
                 </div>
             </div>
         </div>
+        <div id="disclaimer-bar">Not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a> &bull; Uses Sefaria's <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP</a> &bull; &copy; 2025 Jason Leznek</div>
         <div id="donate-bar"><a href="https://www.sefaria.org/ways-to-give" target="_blank">Support Sefaria &mdash; Donate</a></div>
         <div id="update-bar" class="hidden">
             <span id="update-text">An update is available</span>

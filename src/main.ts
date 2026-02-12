@@ -412,6 +412,33 @@ function setupIpcHandlers(): void {
         return true;
     });
 
+    /** Remove a provider's saved API key. */
+    ipcMain.handle('remove-provider-key', (_event, providerId: string) => {
+        const settings = loadSettings();
+        if (settings.apiKeys?.[providerId]) {
+            delete settings.apiKeys[providerId];
+            saveSettings(settings);
+        }
+        // If the removed provider was the active one, switch to the first available
+        if (settings.provider === providerId) {
+            const fallback = AVAILABLE_PROVIDERS.find(p =>
+                p.id !== providerId && (p.requiresKey === false || !!(settings.apiKeys?.[p.id]))
+            );
+            if (fallback) {
+                settings.provider = fallback.id;
+                settings.model = fallback.defaultModel;
+                saveSettings(settings);
+                const key = settings.apiKeys?.[fallback.id] || '';
+                if (mcpManager) {
+                    initChatEngine(fallback.id, key, fallback.defaultModel);
+                    chatEngine?.clearHistory();
+                }
+                return { switchedTo: fallback.id, modelId: fallback.defaultModel };
+            }
+        }
+        return { success: true };
+    });
+
     // Legacy handler kept for backwards compat
     ipcMain.handle('get-api-key', () => {
         const settings = loadSettings();

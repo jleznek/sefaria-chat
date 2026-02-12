@@ -24,6 +24,7 @@ export interface SefariaApi {
     saveProviderConfig(config: { providerId: string; modelId: string; apiKey?: string }): Promise<boolean>;
     getConfiguredProviders(): Promise<(ProviderInfo & { hasKey: boolean })[]>;
     switchProvider(providerId: string, modelId: string): Promise<{ success?: boolean; error?: string }>;
+    removeProviderKey(providerId: string): Promise<{ success?: boolean; switchedTo?: string; modelId?: string }>;
     detectOllama(): Promise<{ available: boolean; models: Array<{ id: string; name: string }> }>;
 
     // Legacy key helpers (still used internally)
@@ -83,6 +84,8 @@ contextBridge.exposeInMainWorld('sefaria', {
     getConfiguredProviders: () => ipcRenderer.invoke('get-configured-providers'),
     switchProvider: (providerId: string, modelId: string) =>
         ipcRenderer.invoke('switch-provider', { providerId, modelId }),
+    removeProviderKey: (providerId: string) =>
+        ipcRenderer.invoke('remove-provider-key', providerId),
     detectOllama: () => ipcRenderer.invoke('detect-ollama'),
 
     // Legacy key helpers
