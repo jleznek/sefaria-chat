@@ -22,7 +22,7 @@
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "echo Linux build disabled"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -98,10 +98,7 @@
       "category": "public.app-category.reference"
     },
     "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
+      "target": [],
       "category": "Education"
     }
   }
