@@ -1,9 +1,12 @@
 {
   "name": "sefaria",
   "productName": "Sefaria Chat",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Explore Jewish texts from the Sefaria digital library, powered by AI",
-  "author": "Sefaria",
+  "author": {
+    "name": "Sefaria",
+    "email": "hello@sefaria.org"
+  },
   "license": "MIT",
   "main": "./dist/main.js",
   "scripts": {
