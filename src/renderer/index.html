@@ -159,6 +159,10 @@
                             <button id="check-updates-btn" class="secondary-btn">Check for Updates</button>
                             <span id="update-check-status" class="update-check-status"></span>
                         </div>
+                        <div id="settings-update-install" class="settings-update-row hidden">
+                            <button id="settings-install-btn" class="secondary-btn update-install-btn">Restart &amp; Install</button>
+                            <span id="settings-update-version" class="update-check-status"></span>
+                        </div>
                         <p class="settings-version">Version <span id="app-version"></span></p>
                         <p class="settings-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>.<br>It uses Sefaria's publicly available MCP servers.<br>&copy; 2025 Jason Leznek</p>
                     </div>
@@ -198,7 +202,7 @@
                 </div>
             </div>
             <div class="input-row">
-                <textarea id="message-input" placeholder="Ask about Jewish texts…" rows="1"></textarea>
+                <textarea id="message-input" placeholder="Ask about the Torah…" rows="1"></textarea>
                 <button id="send-btn" title="Send" disabled>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>

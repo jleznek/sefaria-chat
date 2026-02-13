@@ -253,12 +253,6 @@ function createWindow(): void {
 
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-    // On Windows in dev mode, the taskbar shows electron.exe's icon.
-    // Use setOverlayIcon to add our app icon as an overlay badge.
-    if (process.platform === 'win32' && !app.isPackaged && !appIcon.isEmpty()) {
-        mainWindow.setOverlayIcon(appIcon, 'Sefaria Chat');
-    }
-
     // Route external links to the embedded webview pane in the renderer
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         mainWindow?.webContents.send('open-url', url);
@@ -760,7 +754,8 @@ function setupAutoUpdater(): void {
 
     ipcMain.handle('install-update', () => {
         // Force quit all windows and restart with the new version.
-        // setImmediate ensures the IPC reply is sent before quitting.
+        // autoInstallOnAppQuit must be false so quitAndInstall actually installs now.
+        autoUpdater.autoInstallOnAppQuit = false;
         setImmediate(() => {
             autoUpdater.quitAndInstall(false, true);
         });
@@ -769,7 +764,17 @@ function setupAutoUpdater(): void {
     ipcMain.handle('check-for-updates', async () => {
         try {
             const result = await autoUpdater.checkForUpdates();
-            return { version: result?.updateInfo?.version || null };
+            const latestVersion = result?.updateInfo?.version || null;
+            const currentVersion = app.getVersion();
+            // Only report an update if the server version is different from the running version.
+            if (latestVersion && latestVersion !== currentVersion) {
+                mainWindow?.webContents.send('update-status', {
+                    status: 'downloading',
+                    version: latestVersion,
+                });
+                return { version: latestVersion };
+            }
+            return { version: null };
         } catch {
             return { version: null };
         }

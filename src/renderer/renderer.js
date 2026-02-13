@@ -1134,11 +1134,22 @@ api.onUpdateStatus((data) => {
         const pct = data.percent != null ? ` (${data.percent}%)` : '';
         updateText.textContent = `Downloading update${data.version ? ' v' + data.version : ''}${pct}\u2026`;
         updateAction.style.display = 'none';
+        // Also update settings panel if open
+        const settingsInstallRow = document.getElementById('settings-update-install');
+        if (settingsInstallRow) settingsInstallRow.classList.add('hidden');
+        updateCheckStatus.textContent = `Downloading${pct}\u2026`;
     } else if (data.status === 'ready') {
         updateBar.classList.remove('hidden');
         updateText.textContent = `Update${data.version ? ' v' + data.version : ''} ready`;
         updateAction.style.display = '';
         updateAction.textContent = 'Restart to update';
+        // Also show install button in settings panel
+        const settingsInstallRow = document.getElementById('settings-update-install');
+        const settingsUpdateVersion = document.getElementById('settings-update-version');
+        if (settingsInstallRow) settingsInstallRow.classList.remove('hidden');
+        if (settingsUpdateVersion) settingsUpdateVersion.textContent = `v${data.version || ''} ready to install`;
+        updateCheckStatus.textContent = `Update${data.version ? ' v' + data.version : ''} downloaded!`;
+        updateCheckStatus.className = 'update-check-status';
     }
 });
 
@@ -1161,7 +1172,7 @@ checkUpdatesBtn.addEventListener('click', async () => {
     try {
         const result = await api.checkForUpdates();
         if (result.version) {
-            updateCheckStatus.textContent = `Update v${result.version} available!`;
+            updateCheckStatus.textContent = `Update v${result.version} available \u2014 downloading…`;
             updateCheckStatus.className = 'update-check-status';
         } else {
             updateCheckStatus.textContent = 'You\u2019re up to date.';
@@ -1173,6 +1184,14 @@ checkUpdatesBtn.addEventListener('click', async () => {
     }
     checkUpdatesBtn.disabled = false;
 });
+
+// Install button in Settings panel
+const settingsInstallBtn = document.getElementById('settings-install-btn');
+if (settingsInstallBtn) {
+    settingsInstallBtn.addEventListener('click', () => {
+        api.installUpdate();
+    });
+}
 
 // ── Activated providers display ───────────────────────────────────────
 async function refreshActivatedProviders() {

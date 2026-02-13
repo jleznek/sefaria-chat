@@ -645,6 +645,17 @@ a:hover {
     color: #2e7d32;
 }
 
+.update-install-btn {
+    background: #2e7d32 !important;
+    color: #fff !important;
+    border-color: #2e7d32 !important;
+}
+
+.update-install-btn:hover {
+    background: #1b5e20 !important;
+    border-color: #1b5e20 !important;
+}
+
 .settings-version {
     font-size: 12px;
     color: var(--text-light);

@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            cmd: npm run dist:win
+            cmd: npm run dist:win -- --publish never
 
     runs-on: ${{ matrix.os }}
 
