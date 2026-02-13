@@ -42,6 +42,53 @@ const closeSidebarBtn  = /** @type {HTMLButtonElement}  */ (document.getElementB
 const historyList      = /** @type {HTMLDivElement}     */ (document.getElementById('history-list'));
 const newChatBtn       = /** @type {HTMLButtonElement}  */ (document.getElementById('new-chat-btn'));
 
+// ── Suggested prompt pool ──────────────────────────────────────────────
+const ALL_PROMPTS = [
+    { emoji: '📅', label: "What is today's Torah portion and Daf Yomi?", prompt: "What is today's Torah portion and Daf Yomi?" },
+    { emoji: '🔍', label: 'What does Judaism teach about forgiveness and repentance?', prompt: 'What does Judaism teach about forgiveness and repentance?' },
+    { emoji: '📜', label: 'Show me an ancient manuscript of Genesis 1:1', prompt: 'Show me an ancient manuscript of Genesis 1:1' },
+    { emoji: '📖', label: 'What does the Hebrew word "chesed" mean?', prompt: "What does the Hebrew word 'chesed' mean? Look it up in the dictionaries." },
+    { emoji: '✡️', label: 'Tell me about the topic of Shabbat', prompt: 'Tell me about the topic of Shabbat — its sources, themes, and subtopics' },
+    { emoji: '🌐', label: 'Compare translations of Psalm 23', prompt: 'Compare the English translations of Psalm 23' },
+    { emoji: '📚', label: 'What are the 613 commandments?', prompt: 'What are the 613 commandments (mitzvot)? Give me an overview and some examples from different categories.' },
+    { emoji: '🕎', label: 'Tell me about the history of Hanukkah', prompt: 'Tell me about the history of Hanukkah — its origins, key texts, and traditions.' },
+    { emoji: '🍷', label: 'What is the Passover Seder?', prompt: 'Walk me through the Passover Seder — its 15 steps, key texts, and symbolism.' },
+    { emoji: '🤔', label: 'Explain the concept of Tikkun Olam', prompt: 'What is Tikkun Olam? Trace its meaning from early rabbinic sources to modern usage.' },
+    { emoji: '📖', label: 'What does Pirkei Avot teach?', prompt: 'Summarize the key teachings of Pirkei Avot (Ethics of the Fathers) with notable quotes.' },
+    { emoji: '🌙', label: 'How does the Jewish calendar work?', prompt: 'Explain how the Jewish calendar works — its lunar-solar system, months, and leap years.' },
+    { emoji: '🔤', label: 'Teach me about the Hebrew alphabet', prompt: 'Teach me about the Hebrew alphabet — its letters, gematria, and spiritual significance.' },
+    { emoji: '⚖️', label: 'What is the Talmud?', prompt: 'What is the Talmud? Explain its structure — Mishnah and Gemara — and how a page of Talmud is organized.' },
+    { emoji: '🕊️', label: 'What does Judaism say about peace?', prompt: 'What does Judaism teach about peace (shalom)? Show me key sources from Torah and Talmud.' },
+    { emoji: '📜', label: 'Show me a manuscript of Esther', prompt: 'Show me an ancient manuscript of Esther 1:1 and tell me about the Megillah.' },
+    { emoji: '🔥', label: 'What happened at Mount Sinai?', prompt: 'Describe the revelation at Mount Sinai — what do the Torah and midrashim say happened?' },
+    { emoji: '🌿', label: 'What is the significance of the sukkah?', prompt: 'What is the significance of the sukkah? What are its halachic requirements and symbolism?' },
+    { emoji: '🎵', label: 'What is the Song of Songs about?', prompt: 'What is Shir HaShirim (Song of Songs) about? How do the rabbis interpret it?' },
+    { emoji: '💡', label: 'Explain the Shema prayer', prompt: 'Explain the Shema — its three paragraphs, meaning, and significance in Jewish life.' },
+    { emoji: '🧭', label: 'Who was Maimonides?', prompt: 'Who was Maimonides (Rambam)? Tell me about his life, major works, and lasting influence.' },
+    { emoji: '🍎', label: 'What does the Torah say about Creation?', prompt: 'Walk me through the seven days of Creation in Genesis — what does each day include and what do the commentators say?' },
+    { emoji: '📝', label: 'What is midrash?', prompt: 'What is midrash? Explain the different types and give me some famous examples.' },
+    { emoji: '🌊', label: 'Tell me about the Exodus story', prompt: 'Tell me the story of the Exodus from Egypt — the plagues, the splitting of the sea, and what the sources say.' },
+];
+
+/** Pick `count` random items from `ALL_PROMPTS` using Fisher-Yates sampling. */
+function pickRandomPrompts(count) {
+    const pool = ALL_PROMPTS.slice();
+    const result = [];
+    for (let i = 0; i < count && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        result.push(pool[idx]);
+        pool.splice(idx, 1);
+    }
+    return result;
+}
+
+/** Build the HTML for suggested prompt cards. */
+function buildPromptCardsHtml(prompts) {
+    return prompts.map(p =>
+        `<button class="prompt-card" data-prompt="${escapeAttr(p.prompt)}">${p.emoji} ${escapeHtml(p.label)}</button>`
+    ).join('\n                        ');
+}
+
 // ── State ─────────────────────────────────────────────────────────────
 let isStreaming   = false;
 let currentChatId = /** @type {string|null} */ (null);
@@ -197,6 +244,10 @@ function renderMarkdown(text) {
         const renderer = new marked.Renderer();
         // Override link rendering to prevent default navigation
         renderer.link = function({ href, title, text }) {
+            // Only allow http/https/mailto links — block javascript: and data: URIs
+            if (href && !/^(https?:|mailto:|#)/i.test(href)) {
+                return text;
+            }
             const titleAttr = title ? ` title="${title}"` : '';
             return `<a href="${href}"${titleAttr} data-external="true">${text}</a>`;
         };
@@ -259,7 +310,28 @@ async function renderPendingMermaid(container) {
 }
 
 // ── Scrolling ─────────────────────────────────────────────────────────
+let autoScrollEnabled = true;
+let autoScrollPreference = localStorage.getItem('autoScroll') !== 'false'; // default on
+
+// Sync toggle from settings
+const autoScrollToggle = /** @type {HTMLInputElement} */ (document.getElementById('auto-scroll-toggle'));
+autoScrollToggle.checked = autoScrollPreference;
+autoScrollToggle.addEventListener('change', () => {
+    autoScrollPreference = autoScrollToggle.checked;
+    localStorage.setItem('autoScroll', String(autoScrollPreference));
+    autoScrollEnabled = autoScrollPreference;
+});
+
+/** Detect when the user scrolls up during streaming to pause auto-scroll. */
+chatContainer.addEventListener('scroll', () => {
+    if (!autoScrollPreference) return; // user disabled auto-scroll entirely
+    // "At bottom" = within 80px of the bottom
+    const atBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 80;
+    autoScrollEnabled = atBottom;
+});
+
 function scrollToBottom() {
+    if (!autoScrollEnabled) return;
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
@@ -356,6 +428,10 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function escapeAttr(text) {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
@@ -507,6 +583,7 @@ async function sendMessage() {
     sendBtn.disabled = true;
     messageInput.value = '';
     autoResize();
+    if (autoScrollPreference) autoScrollEnabled = true; // Re-enable auto-scroll for new messages
 
     // Remove previous follow-up chips
     const oldFollowUps = messagesDiv.querySelector('.follow-ups');
@@ -663,15 +740,13 @@ clearBtn.addEventListener('click', () => resetToWelcome());
 async function resetToWelcome() {
     await api.clearChat();
     currentChatId = null;
+    const cards = buildPromptCardsHtml(pickRandomPrompts(6));
     messagesDiv.innerHTML = `
         <div class="welcome-message">
             <h2>Welcome to Sefaria Chat</h2>
             <p>Ask about Jewish texts, explore the library, or dive into Torah topics.</p>
             <div class="suggested-prompts">
-                <button class="prompt-card" data-prompt="What does the Torah say about justice?">What does the Torah say about justice?</button>
-                <button class="prompt-card" data-prompt="Summarize the story of Joseph in Genesis">Summarize the story of Joseph in Genesis</button>
-                <button class="prompt-card" data-prompt="What are the key themes in Pirkei Avot?">What are the key themes in Pirkei Avot?</button>
-                <button class="prompt-card" data-prompt="Compare how Rashi and Ramban interpret the first verse of Genesis">Compare how Rashi and Ramban interpret the first verse of Genesis</button>
+                        ${cards}
             </div>
         </div>`;
     wirePromptCards();
@@ -812,7 +887,8 @@ async function refreshModelPicker() {
             for (const m of p.models) {
                 const opt = document.createElement('option');
                 opt.value = `${p.id}::${m.id}`;
-                opt.textContent = m.name;
+                const rpm = m.rpm ?? p.rateLimit?.rpm;
+                opt.textContent = rpm ? `${m.name}  (${rpm} RPM)` : m.name;
                 if (p.id === activeProviderId && m.id === activeModelId) {
                     opt.selected = true;
                 }
@@ -887,6 +963,15 @@ function wirePromptCards() {
     });
 }
 wirePromptCards();
+
+// Randomize initial welcome prompts on load
+(function randomizeInitialPrompts() {
+    const container = messagesDiv.querySelector('.suggested-prompts');
+    if (container) {
+        container.innerHTML = buildPromptCardsHtml(pickRandomPrompts(6));
+        wirePromptCards();
+    }
+})();
 
 // ── History sidebar ───────────────────────────────────────────────────
 function toggleSidebar() {

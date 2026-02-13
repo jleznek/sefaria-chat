@@ -8,20 +8,29 @@ type ToolStatusCallback = (toolName: string, status: 'calling' | 'done') => void
 export class ChatEngine {
     private provider: ChatProvider;
     private mcpManager: McpClientManager;
+    private modelId: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private conversationHistory: any[] = [];
 
     // Rate limit tracking – limits come from the active provider
     private requestTimestamps: number[] = [];
 
-    constructor(provider: ChatProvider, mcpManager: McpClientManager) {
+    constructor(provider: ChatProvider, mcpManager: McpClientManager, modelId?: string) {
         this.provider = provider;
         this.mcpManager = mcpManager;
+        this.modelId = modelId || provider.info.defaultModel;
     }
 
     /** Swap the active provider (e.g. when the user changes settings). */
-    updateProvider(provider: ChatProvider): void {
+    updateProvider(provider: ChatProvider, modelId?: string): void {
         this.provider = provider;
+        this.modelId = modelId || provider.info.defaultModel;
+    }
+
+    /** Get the effective RPM for the active model (per-model override or provider default). */
+    private getEffectiveRpm(): number {
+        const model = this.provider.info.models.find(m => m.id === this.modelId);
+        return model?.rpm ?? this.provider.info.rateLimit.rpm;
     }
 
     /** Record an API request and prune old entries outside the window. */
@@ -46,7 +55,8 @@ export class ChatEngine {
      * request falls outside the window.
      */
     private async waitForCapacity(): Promise<void> {
-        const { rpm, windowMs } = this.provider.info.rateLimit;
+        const rpm = this.getEffectiveRpm();
+        const { windowMs } = this.provider.info.rateLimit;
         // Keep a 1-request safety margin
         const effectiveLimit = Math.max(1, rpm - 1);
         while (this.currentUsage() >= effectiveLimit) {
@@ -61,14 +71,15 @@ export class ChatEngine {
 
     /** True if we have used less than 60% of the RPM budget. */
     hasCapacityForFollowUps(): boolean {
-        const { rpm } = this.provider.info.rateLimit;
+        const rpm = this.getEffectiveRpm();
         return this.currentUsage() < Math.floor(rpm * 0.6);
     }
 
     /** Get current usage stats for the rate limit status bar. */
     getUsageStats(): { used: number; limit: number; resetsInSeconds: number } {
         const now = Date.now();
-        const { rpm, windowMs } = this.provider.info.rateLimit;
+        const rpm = this.getEffectiveRpm();
+        const { windowMs } = this.provider.info.rateLimit;
         const cutoff = now - windowMs;
         this.requestTimestamps = this.requestTimestamps.filter(t => t > cutoff);
         const used = this.requestTimestamps.length;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net;
+                   script-src 'self' https://cdn.jsdelivr.net;
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                    font-src https://fonts.gstatic.com;
                    connect-src https://mcp.sefaria.org https://developers.sefaria.org https://generativelanguage.googleapis.com;
@@ -154,6 +154,14 @@
                         <button id="reconnect-btn" class="secondary-btn">Reconnect MCP Servers</button>
                     </div>
                     <div class="settings-section">
+                        <h3>Preferences</h3>
+                        <label class="settings-toggle-row">
+                            <span>Auto-scroll during responses</span>
+                            <input type="checkbox" id="auto-scroll-toggle" checked>
+                            <span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                    <div class="settings-section">
                         <h3>Updates</h3>
                         <div class="settings-update-row">
                             <button id="check-updates-btn" class="secondary-btn">Check for Updates</button>
@@ -177,10 +185,12 @@
                     <h2>Welcome to Sefaria Chat</h2>
                     <p>Ask about Jewish texts, explore the library, or dive into Torah topics.</p>
                     <div class="suggested-prompts">
-                        <button class="prompt-card" data-prompt="What does the Torah say about justice?">What does the Torah say about justice?</button>
-                        <button class="prompt-card" data-prompt="Summarize the story of Joseph in Genesis">Summarize the story of Joseph in Genesis</button>
-                        <button class="prompt-card" data-prompt="What are the key themes in Pirkei Avot?">What are the key themes in Pirkei Avot?</button>
-                        <button class="prompt-card" data-prompt="Compare how Rashi and Ramban interpret the first verse of Genesis">Compare how Rashi and Ramban interpret the first verse of Genesis</button>
+                        <button class="prompt-card" data-prompt="What is today's Torah portion and Daf Yomi?">📅 What is today's Torah portion and Daf Yomi?</button>
+                        <button class="prompt-card" data-prompt="What does Judaism teach about forgiveness and repentance?">🔍 What does Judaism teach about forgiveness and repentance?</button>
+                        <button class="prompt-card" data-prompt="Show me an ancient manuscript of Genesis 1:1">📜 Show me an ancient manuscript of Genesis 1:1</button>
+                        <button class="prompt-card" data-prompt="What does the Hebrew word 'chesed' mean? Look it up in the dictionaries.">📖 What does the Hebrew word "chesed" mean?</button>
+                        <button class="prompt-card" data-prompt="Tell me about the topic of Shabbat — its sources, themes, and subtopics">✡️ Tell me about the topic of Shabbat</button>
+                        <button class="prompt-card" data-prompt="Compare the English translations of Psalm 23">🌐 Compare translations of Psalm 23</button>
                     </div>
                 </div>
             </div>
@@ -244,7 +254,7 @@
             </button>
             <button id="webview-close" title="Close">&times;</button>
         </div>
-        <webview id="webview-content" src="about:blank"></webview>
+        <webview id="webview-content" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></webview>
     </div>
     </div><!-- end #split-container -->
 

@@ -23,6 +23,8 @@ export interface StreamResult {
 export interface ProviderModel {
     id: string;
     name: string;
+    /** Optional per-model RPM override (free-tier). Falls back to provider-level rateLimit. */
+    rpm?: number;
 }
 
 export interface ProviderInfo {

@@ -10,6 +10,11 @@ import type { ChatProvider } from './providers';
 // Set app user model ID so Windows taskbar shows our icon, not the default Electron icon
 app.setAppUserModelId('org.sefaria.desktop');
 
+// Suppress EPIPE errors from broken stdout/stderr pipes (e.g. when
+// electron-updater writes to console after the parent process closes).
+process.stdout?.on?.('error', () => {});
+process.stderr?.on?.('error', () => {});
+
 let mainWindow: BrowserWindow | null = null;
 let mcpManager: McpClientManager | null = null;
 let chatEngine: ChatEngine | null = null;
@@ -22,6 +27,8 @@ interface AppSettings {
     model?: string;       // provider-specific model ID
     apiKeys?: Record<string, string>;  // keyed by provider id
     apiKey?: string;      // legacy single Gemini key (migrated on load)
+    windowBounds?: { x: number; y: number; width: number; height: number };
+    windowMaximized?: boolean;
 }
 
 interface ChatSummary {
@@ -95,6 +102,7 @@ function saveChatToFile(chat: SavedChat): void {
 }
 
 function loadChatFromFile(chatId: string): SavedChat | null {
+    if (!isValidChatId(chatId)) return null;
     try {
         const filePath = path.join(getChatsDir(), `${chatId}.json`);
         const data = fs.readFileSync(filePath, 'utf8');
@@ -105,6 +113,7 @@ function loadChatFromFile(chatId: string): SavedChat | null {
 }
 
 function deleteChatFile(chatId: string): void {
+    if (!isValidChatId(chatId)) return;
     try {
         const filePath = path.join(getChatsDir(), `${chatId}.json`);
         if (fs.existsSync(filePath)) {
@@ -113,6 +122,11 @@ function deleteChatFile(chatId: string): void {
     } catch {
         // ignore
     }
+}
+
+/** Validate chat ID to prevent path traversal. */
+function isValidChatId(chatId: string): boolean {
+    return /^chat_\d+_[a-z0-9]+$/.test(chatId);
 }
 
 function listAllChats(): ChatSummary[] {
@@ -235,9 +249,25 @@ function createWindow(): void {
 
     const appIcon = getAppIcon();
 
+    // Restore saved window bounds, falling back to defaults
+    const settings = loadSettings();
+    const saved = settings.windowBounds;
+    const defaultBounds = { width: 960, height: 720 };
+    // Validate saved bounds are on a visible display
+    let bounds = defaultBounds;
+    if (saved) {
+        const displays = screen.getAllDisplays();
+        const visible = displays.some(d =>
+            saved.x < d.bounds.x + d.bounds.width &&
+            saved.x + saved.width > d.bounds.x &&
+            saved.y < d.bounds.y + d.bounds.height &&
+            saved.y + saved.height > d.bounds.y,
+        );
+        if (visible) { bounds = saved; }
+    }
+
     mainWindow = new BrowserWindow({
-        width: 960,
-        height: 720,
+        ...bounds,
         minWidth: 600,
         minHeight: 400,
         title: 'Sefaria Chat',
@@ -247,9 +277,14 @@ function createWindow(): void {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
+            sandbox: true,
             webviewTag: true,
         },
     });
+
+    if (settings.windowMaximized) {
+        mainWindow.maximize();
+    }
 
     mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
@@ -266,6 +301,24 @@ function createWindow(): void {
             mainWindow?.webContents.send('open-url', url);
         }
     });
+
+    // Persist window bounds on move/resize
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    const persistBounds = () => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            const s = loadSettings();
+            s.windowMaximized = mainWindow.isMaximized();
+            if (!mainWindow.isMaximized()) {
+                s.windowBounds = mainWindow.getBounds();
+            }
+            saveSettings(s);
+        }, 500);
+    };
+    mainWindow.on('resize', persistBounds);
+    mainWindow.on('move', persistBounds);
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -325,9 +378,9 @@ function setupIpcHandlers(): void {
         const provider = createProvider(providerId, apiKey, modelId);
         if (!provider) { return false; }
         if (chatEngine) {
-            chatEngine.updateProvider(provider);
+            chatEngine.updateProvider(provider, modelId);
         } else {
-            chatEngine = new ChatEngine(provider, mcpManager);
+            chatEngine = new ChatEngine(provider, mcpManager, modelId);
         }
         return true;
     }

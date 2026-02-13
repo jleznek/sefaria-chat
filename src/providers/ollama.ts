@@ -4,6 +4,11 @@ import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _openaiModule: any = null;
 
+/** How long to wait for the first token from Ollama (model may need loading). */
+const FIRST_TOKEN_TIMEOUT_MS = 180_000; // 3 minutes
+/** How long to wait between tokens before assuming the model stalled. */
+const IDLE_TIMEOUT_MS = 60_000; // 60 seconds
+
 export const OLLAMA_INFO: ProviderInfo = {
     id: 'ollama',
     name: 'Ollama (Local)',
@@ -148,22 +153,61 @@ export class OllamaProvider implements ChatProvider {
         // the OpenAI tool-calling format reliably and will hang or error.
         // The system prompt already has Sefaria context, so the model can
         // answer from its training knowledge.
-        const stream = await client.chat.completions.create({
-            model: this.model,
-            messages,
-            stream: true,
-        });
+
+        const abortController = new AbortController();
+
+        const stream = await client.chat.completions.create(
+            {
+                model: this.model,
+                messages,
+                stream: true,
+            },
+            { signal: abortController.signal },
+        );
 
         let text = '';
+        let receivedFirstToken = false;
 
-        for await (const chunk of stream) {
-            const delta = chunk.choices?.[0]?.delta;
-            if (!delta) { continue; }
+        // Timer that aborts if we don't receive data in time.
+        // Starts with a generous timeout for model loading, then tightens.
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-            if (delta.content) {
-                text += delta.content;
-                onTextChunk(delta.content);
+        const resetIdleTimer = () => {
+            if (idleTimer) { clearTimeout(idleTimer); }
+            const timeout = receivedFirstToken ? IDLE_TIMEOUT_MS : FIRST_TOKEN_TIMEOUT_MS;
+            idleTimer = setTimeout(() => {
+                abortController.abort();
+            }, timeout);
+        };
+
+        // Start initial "first token" timer
+        resetIdleTimer();
+
+        try {
+            for await (const chunk of stream) {
+                const delta = chunk.choices?.[0]?.delta;
+                if (!delta) { continue; }
+
+                if (delta.content) {
+                    if (!receivedFirstToken) { receivedFirstToken = true; }
+                    text += delta.content;
+                    onTextChunk(delta.content);
+                    resetIdleTimer();
+                }
             }
+        } catch (err: unknown) {
+            // If we aborted due to timeout, provide a helpful message
+            if (abortController.signal.aborted) {
+                const phase = receivedFirstToken ? 'responding' : 'loading';
+                throw new Error(
+                    receivedFirstToken
+                        ? `Ollama stopped ${phase} (no data for ${IDLE_TIMEOUT_MS / 1000}s). The model may have run out of memory. Try a smaller model or restart Ollama.`
+                        : `Ollama timed out while ${phase} the model (waited ${FIRST_TOKEN_TIMEOUT_MS / 1000}s). Make sure Ollama is running and the model "${this.model}" is available. Try running "ollama pull ${this.model}" first.`,
+                );
+            }
+            throw err;
+        } finally {
+            if (idleTimer) { clearTimeout(idleTimer); }
         }
 
         // Ollama models don't use tool calls — always return empty
@@ -172,10 +216,24 @@ export class OllamaProvider implements ChatProvider {
 
     async generateOnce(prompt: string): Promise<string> {
         const client = await this.getClient();
-        const response = await client.chat.completions.create({
-            model: this.model,
-            messages: [{ role: 'user', content: prompt }],
-        });
-        return response.choices?.[0]?.message?.content || '';
+        const abortController = new AbortController();
+        const timeout = setTimeout(() => abortController.abort(), FIRST_TOKEN_TIMEOUT_MS);
+        try {
+            const response = await client.chat.completions.create(
+                {
+                    model: this.model,
+                    messages: [{ role: 'user', content: prompt }],
+                },
+                { signal: abortController.signal },
+            );
+            return response.choices?.[0]?.message?.content || '';
+        } catch (err: unknown) {
+            if (abortController.signal.aborted) {
+                throw new Error(`Ollama timed out generating a response (waited ${FIRST_TOKEN_TIMEOUT_MS / 1000}s). Make sure Ollama is running and the model is loaded.`);
+            }
+            throw err;
+        } finally {
+            clearTimeout(timeout);
+        }
     }
 }
