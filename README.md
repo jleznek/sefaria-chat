@@ -15,6 +15,9 @@ A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org
   | [Google Gemini](https://aistudio.google.com/apikey) | Gemini 2.5 Flash, 2.5 Pro, etc. | Free tier available | Full tool-calling support |
   | [OpenAI](https://platform.openai.com/api-keys) | GPT-4o, GPT-4o mini, o3-mini, etc. | Paid | Full tool-calling support |
   | [Anthropic](https://console.anthropic.com/) | Claude Sonnet 4, Claude Haiku, etc. | Paid | Full tool-calling support |
+  | [xAI (Grok)](https://console.x.ai/) | Grok 3, Grok 3 Mini, etc. | Paid | Full tool-calling support |
+  | [Mistral AI](https://console.mistral.ai/) | Mistral Small, Medium, Large | Paid | Full tool-calling support |
+  | [DeepSeek](https://platform.deepseek.com/) | DeepSeek-V3, DeepSeek-R1 | Paid | Full tool-calling support |
   | [Ollama](https://ollama.com/) (local) | Llama, Mistral, Qwen, any model you pull | None — runs locally | No API key or internet needed for the AI; citations are auto-linked |
 
 - **Chat interface** — Ask questions about Jewish texts in natural language

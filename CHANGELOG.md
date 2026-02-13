@@ -2,6 +2,13 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [1.4.0]
+
+- **New provider: xAI (Grok)** — Added support for Grok 3, Grok 3 Fast, Grok 3 Mini, and Grok 3 Mini Fast via xAI's OpenAI-compatible API
+- **New provider: Mistral AI** — Added support for Mistral Small, Mistral Medium, and Mistral Large
+- **New provider: DeepSeek** — Added support for DeepSeek-V3 and DeepSeek-R1
+- All three new providers support full streaming, tool calling, and follow-up generation with no additional dependencies
+
 ## [1.3.2]
 
 - **Changelog fix**: Fixed blank changelog in Settings About by including CHANGELOG.md in packaged app

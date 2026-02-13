@@ -5,7 +5,7 @@ This is a standalone Electron desktop application for exploring the Sefaria digi
 
 ## Architecture
 - **Runtime**: Electron (Chromium + Node.js)
-- **LLM**: Google Gemini 2.5 Flash (user provides free API key from Google AI Studio)
+- **LLM**: Multiple providers — Google Gemini, OpenAI, Anthropic, xAI (Grok), Mistral AI, DeepSeek, and Ollama (local)
 - **MCP Servers** (connected from main process via `@modelcontextprotocol/sdk`):
   - **Sefaria Texts MCP** (`https://mcp.sefaria.org/sse`) – Query the library of Jewish texts
   - **Sefaria Developers MCP** (`https://developers.sefaria.org/mcp`) – API/code assistance
@@ -15,7 +15,7 @@ This is a standalone Electron desktop application for exploring the Sefaria digi
 ## Key Files
 - `src/main.ts` – Electron main process: window creation, IPC handlers, settings persistence
 - `src/preload.ts` – Context bridge exposing `window.sefaria` API to the renderer
-- `src/chat-engine.ts` – Gemini streaming + tool-calling loop
+- `src/chat-engine.ts` – LLM streaming + tool-calling loop (provider-agnostic)
 - `src/mcp-client.ts` – Manages SSE connections to both Sefaria MCP servers
 - `src/prompts.ts` – System and command prompts
 - `src/renderer/` – Browser-side UI (HTML, CSS, vanilla JS)

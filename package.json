@@ -1,7 +1,7 @@
 {
   "name": "sefaria",
   "productName": "Sefaria Chat",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Explore Jewish texts from the Sefaria digital library, powered by AI",
   "author": {
     "name": "Jason Leznek"

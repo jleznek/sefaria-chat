@@ -15,6 +15,9 @@ Sefaria Chat is a standalone Windows app that connects AI language models direct
   - **Google Gemini** (free tier available — no credit card needed)
   - **OpenAI** (GPT-4o, etc.)
   - **Anthropic** (Claude)
+  - **xAI (Grok)** — Grok 3, Grok 3 Mini, and more
+  - **Mistral AI** — Mistral Small, Medium, and Large
+  - **DeepSeek** — DeepSeek-V3 and DeepSeek-R1
   - **Ollama** (completely local and offline — no API key, no internet needed for the AI)
 - **Works offline** — With Ollama, you can run the AI entirely on your own machine. The app still connects to Sefaria for text lookups, but the AI itself needs no cloud connection
 - **Print your conversations** — Generate a PDF preview of any conversation for study or sharing

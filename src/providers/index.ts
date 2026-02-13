@@ -2,12 +2,18 @@ export type { ChatProvider, ProviderInfo, ProviderModel, ToolDeclaration, Stream
 export { GEMINI_INFO, GeminiProvider } from './gemini';
 export { OPENAI_INFO, OpenAIProvider } from './openai';
 export { ANTHROPIC_INFO, AnthropicProvider } from './anthropic';
+export { GROK_INFO, GrokProvider } from './grok';
+export { MISTRAL_INFO, MistralProvider } from './mistral';
+export { DEEPSEEK_INFO, DeepSeekProvider } from './deepseek';
 export { OLLAMA_INFO, OllamaProvider, detectOllamaModels } from './ollama';
 
 import type { ChatProvider, ProviderInfo } from './types';
 import { GEMINI_INFO, GeminiProvider } from './gemini';
 import { OPENAI_INFO, OpenAIProvider } from './openai';
 import { ANTHROPIC_INFO, AnthropicProvider } from './anthropic';
+import { GROK_INFO, GrokProvider } from './grok';
+import { MISTRAL_INFO, MistralProvider } from './mistral';
+import { DEEPSEEK_INFO, DeepSeekProvider } from './deepseek';
 import { OLLAMA_INFO, OllamaProvider } from './ollama';
 
 /** Static list of all supported providers and their metadata. */
@@ -15,6 +21,9 @@ export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
     GEMINI_INFO,
     OPENAI_INFO,
     ANTHROPIC_INFO,
+    GROK_INFO,
+    MISTRAL_INFO,
+    DEEPSEEK_INFO,
     OLLAMA_INFO,
 ];
 
@@ -34,6 +43,12 @@ export function createProvider(
             return new OpenAIProvider(apiKey, model);
         case 'anthropic':
             return new AnthropicProvider(apiKey, model);
+        case 'grok':
+            return new GrokProvider(apiKey, model);
+        case 'mistral':
+            return new MistralProvider(apiKey, model);
+        case 'deepseek':
+            return new DeepSeekProvider(apiKey, model);
         case 'ollama':
             return new OllamaProvider(apiKey, model);
         default:
