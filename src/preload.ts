@@ -73,6 +73,7 @@ export interface SefariaApi {
     installUpdate(): Promise<void>;
     checkForUpdates(): Promise<{ version: string | null }>;
     getAppVersion(): Promise<string>;
+    getChangelog(): Promise<string>;
 }
 
 contextBridge.exposeInMainWorld('sefaria', {
@@ -145,4 +146,5 @@ contextBridge.exposeInMainWorld('sefaria', {
     installUpdate: () => ipcRenderer.invoke('install-update'),
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    getChangelog: () => ipcRenderer.invoke('get-changelog'),
 } satisfies SefariaApi);

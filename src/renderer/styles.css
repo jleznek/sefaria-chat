@@ -185,6 +185,120 @@ a:hover {
     color: var(--accent-hover);
 }
 
+/* ── About section ─────────────────────────────────────────────────── */
+.about-description {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+.about-description a {
+    color: var(--accent);
+    text-decoration: none;
+}
+.about-description a:hover {
+    text-decoration: underline;
+}
+.about-links {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.about-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-body);
+    text-decoration: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+.about-link:hover {
+    border-color: var(--accent);
+    background: var(--bg-chat);
+}
+.about-link.donate-link {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.about-link.donate-link:hover {
+    background: var(--accent);
+    color: #fff;
+}
+.changelog-details {
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.changelog-details summary {
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--bg);
+    color: var(--text);
+    user-select: none;
+    transition: background 0.2s;
+}
+.changelog-details summary:hover {
+    background: var(--bg-chat);
+}
+.changelog-content {
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    max-height: 300px;
+    overflow-y: auto;
+}
+.changelog-content h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 12px 0 6px 0;
+    color: var(--text);
+}
+.changelog-content h2:first-child {
+    margin-top: 0;
+}
+.changelog-content ul {
+    margin: 4px 0 8px 0;
+    padding-left: 20px;
+}
+.changelog-content li {
+    margin-bottom: 4px;
+}
+.changelog-content strong {
+    color: var(--text);
+}
+.about-disclaimer {
+    font-size: 11px;
+    color: var(--text-light);
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+.about-disclaimer a {
+    color: var(--accent-hover);
+}
+.about-copyright {
+    font-size: 11px;
+    color: var(--text-light);
+    line-height: 1.5;
+}
+.about-copyright a {
+    color: var(--accent-hover);
+    text-decoration: none;
+}
+.about-copyright a:hover {
+    text-decoration: underline;
+}
+
 /* ── Provider selector ─────────────────────────────────────────────── */
 .provider-select {
     padding: 8px 12px;

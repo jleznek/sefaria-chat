@@ -270,7 +270,7 @@ function createWindow(): void {
         ...bounds,
         minWidth: 600,
         minHeight: 400,
-        title: 'Sefaria Chat',
+        title: `Sefaria Chat v${app.getVersion()}`,
         icon: appIcon,
         backgroundColor: '#f8f6f1',
         webPreferences: {
@@ -835,6 +835,15 @@ function setupAutoUpdater(): void {
 
     ipcMain.handle('get-app-version', () => {
         return app.getVersion();
+    });
+
+    ipcMain.handle('get-changelog', () => {
+        try {
+            const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+            return fs.readFileSync(changelogPath, 'utf-8');
+        } catch {
+            return '';
+        }
     });
 }
 

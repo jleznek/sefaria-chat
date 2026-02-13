@@ -4,7 +4,7 @@ A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org
 
 > **Disclaimer:** This application is not developed by, affiliated with, or endorsed by [Sefaria.org](https://www.sefaria.org/). It is an independent project that uses Sefaria's publicly available MCP (Model Context Protocol) servers.
 >
-> &copy; 2025 Jason Leznek. Released under the MIT License.
+> &copy; 2026 Jason Leznek. Released under the MIT License.
 
 ## Features
 

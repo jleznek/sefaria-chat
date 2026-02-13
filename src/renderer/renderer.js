@@ -1432,9 +1432,26 @@ async function refreshActivatedProviders() {
         updateRateLimitBar(stats);
     } catch { /* ignore */ }
 
-    // Show app version in settings
+    // Show app version in settings and title bar
     try {
         const ver = await api.getAppVersion();
         document.getElementById('app-version').textContent = ver;
+        document.title = `Sefaria Chat v${ver}`;
+    } catch { /* ignore */ }
+
+    // Load changelog into About section
+    try {
+        const md = await api.getChangelog();
+        const el = document.getElementById('changelog-content');
+        if (el && md) {
+            el.innerHTML = md
+                .replace(/^# .+\n+/m, '')           // strip top-level heading
+                .replace(/^Check \[.*\n*/m, '')       // strip "Check Keep a Changelog" line
+                .replace(/^## \[(.+?)\]/gm, '<h2>$1</h2>')
+                .replace(/^- \*\*(.+?)\*\*(.*)$/gm, '<li><strong>$1</strong>$2</li>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>\n?)+/gs, '<ul>$&</ul>')
+                .replace(/\n{2,}/g, '\n');
+        }
     } catch { /* ignore */ }
 })();
