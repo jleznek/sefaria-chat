@@ -797,6 +797,23 @@ a:hover {
 
 .update-check-status.success {
     color: #2e7d32;
+    font-weight: 700;
+}
+
+.update-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    max-width: 200px;
+}
+.update-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s ease;
 }
 
 .update-install-btn {

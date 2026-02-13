@@ -2,6 +2,18 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [1.3.2]
+
+- **Changelog fix**: Fixed blank changelog in Settings About by including CHANGELOG.md in packaged app
+- **Update progress bar**: Added a visual progress bar in Settings when downloading an update
+- **Up-to-date styling**: "You're up to date" message now displays in bold green
+
+## [1.3.1]
+
+- **About section**: Added About page in Settings with changelog, GitHub link, donate link, and copyright
+- **Version in title bar**: Window title now shows the app version
+- **Copyright update**: Updated copyright year to 2026
+
 ## [1.3.0]
 
 - **Ollama timeout handling**: Added first-token timeout (3 min) and idle timeout (60s) to prevent infinite "Thinking..." state when a model is loading or stalls

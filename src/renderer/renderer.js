@@ -1214,6 +1214,9 @@ const updateAction = /** @type {HTMLButtonElement} */ (document.getElementById('
 const updateDismiss = /** @type {HTMLButtonElement} */ (document.getElementById('update-dismiss'));
 
 api.onUpdateStatus((data) => {
+    const progressRow = document.getElementById('settings-update-progress');
+    const progressFill = document.getElementById('update-progress-fill');
+    const progressPct = document.getElementById('update-progress-pct');
     if (data.status === 'downloading') {
         updateBar.classList.remove('hidden');
         const pct = data.percent != null ? ` (${data.percent}%)` : '';
@@ -1222,7 +1225,15 @@ api.onUpdateStatus((data) => {
         // Also update settings panel if open
         const settingsInstallRow = document.getElementById('settings-update-install');
         if (settingsInstallRow) settingsInstallRow.classList.add('hidden');
-        updateCheckStatus.textContent = `Downloading${pct}\u2026`;
+        updateCheckStatus.textContent = `Downloading${data.version ? ' v' + data.version : ''}\u2026`;
+        // Show progress bar in settings
+        if (progressRow && progressFill) {
+            progressRow.classList.remove('hidden');
+            if (data.percent != null) {
+                progressFill.style.width = `${data.percent}%`;
+                if (progressPct) progressPct.textContent = `${data.percent}%`;
+            }
+        }
     } else if (data.status === 'ready') {
         updateBar.classList.remove('hidden');
         updateText.textContent = `Update${data.version ? ' v' + data.version : ''} ready`;
@@ -1235,6 +1246,8 @@ api.onUpdateStatus((data) => {
         if (settingsUpdateVersion) settingsUpdateVersion.textContent = `v${data.version || ''} ready to install`;
         updateCheckStatus.textContent = `Update${data.version ? ' v' + data.version : ''} downloaded!`;
         updateCheckStatus.className = 'update-check-status';
+        // Hide progress bar
+        if (progressRow) progressRow.classList.add('hidden');
     }
 });
 
