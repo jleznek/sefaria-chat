@@ -27,6 +27,22 @@ A cross-platform desktop app for exploring the [Sefaria](https://www.sefaria.org
 - **Print preview** — Generate a PDF preview of your conversation from within the app
 - **Citation auto-linking** — Sefaria text references are automatically hyperlinked, even with local models
 
+## Architecture
+
+![Architecture Diagram](docs/architecture.png)
+
+The app follows Electron's multi-process architecture with a clean separation between the main process (Node.js) and the renderer process (Chromium). See [docs/](docs/) for detailed diagrams and the full technical reference document.
+
+### How It Works
+
+1. **User sends a message** → the renderer calls `window.sefaria.sendMessage()` through the context bridge
+2. **Chat Engine** checks rate limits, then streams the request to the configured LLM provider
+3. **LLM responds** with text (streamed live to the UI) and optionally requests tool calls
+4. **Tool-calling loop** — the engine executes MCP tools against Sefaria's servers, feeds results back to the LLM, and repeats (up to 10 rounds)
+5. **Final response** is rendered as Markdown with auto-linked Sefaria citations, Mermaid diagrams, and LaTeX math
+
+![Message Flow](docs/sequence.png)
+
 ## MCP Servers
 
 The app connects to two Sefaria MCP (Model Context Protocol) servers:

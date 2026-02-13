@@ -1,0 +1,67 @@
+graph TB
+    subgraph Electron["Electron App"]
+        subgraph Main["Main Process (main.ts)"]
+            Settings["Settings & Chat\nPersistence\n(JSON files)"]
+            IPC["IPC Handlers"]
+            AutoUpdate["Auto-Updater\n(electron-updater)"]
+            
+            subgraph Engine["Chat Engine (chat-engine.ts)"]
+                RateLimit["Rate Limiter"]
+                ToolLoop["Tool-Calling Loop"]
+                Streaming["Stream Manager"]
+            end
+            
+            subgraph Providers["Provider Layer (providers/)"]
+                Gemini["Gemini\nProvider"]
+                OpenAI["OpenAI\nProvider"]
+                Anthropic["Anthropic\nProvider"]
+                Ollama["Ollama\nProvider"]
+            end
+            
+            subgraph MCP["MCP Client (mcp-client.ts)"]
+                SSE["SSE / Streamable HTTP\nTransport"]
+            end
+        end
+        
+        Preload["Preload Script\n(preload.ts)\nContext Bridge"]
+        
+        subgraph Renderer["Renderer Process (renderer/)"]
+            UI["Chat UI\n(HTML + CSS + JS)"]
+            SettingsUI["Settings Panel"]
+            WebView["Embedded Browser\nPanel"]
+            Mermaid["Mermaid.js\nDiagram Renderer"]
+        end
+    end
+    
+    subgraph External["External Services"]
+        GeminiAPI["Google Gemini API"]
+        OpenAIAPI["OpenAI API"]
+        AnthropicAPI["Anthropic API"]
+        OllamaLocal["Ollama (Local)"]
+        SefariaTexts["Sefaria Texts MCP\nmcp.sefaria.org/sse"]
+        SefariaDev["Sefaria Dev MCP\ndevelopers.sefaria.org/mcp"]
+        GitHub["GitHub Releases\n(Auto-Update)"]
+    end
+    
+    UI <-->|"window.sefaria API"| Preload
+    Preload <-->|"IPC (invoke/on)"| IPC
+    IPC --> Engine
+    IPC --> Settings
+    Engine --> Providers
+    Engine <--> MCP
+    Gemini <-->|"API calls"| GeminiAPI
+    OpenAI <-->|"API calls"| OpenAIAPI
+    Anthropic <-->|"API calls"| AnthropicAPI
+    Ollama <-->|"API calls"| OllamaLocal
+    MCP <-->|"SSE/HTTP"| SefariaTexts
+    MCP <-->|"SSE/HTTP"| SefariaDev
+    AutoUpdate <-->|"Check & Download"| GitHub
+    ToolLoop --> MCP
+    
+    style Electron fill:#1a1a2e,stroke:#e0c97f,color:#fff
+    style Main fill:#16213e,stroke:#e0c97f,color:#fff
+    style Renderer fill:#0f3460,stroke:#e0c97f,color:#fff
+    style External fill:#2d132c,stroke:#e0c97f,color:#fff
+    style Engine fill:#1b4332,stroke:#e0c97f,color:#fff
+    style Providers fill:#1b3a4b,stroke:#e0c97f,color:#fff
+    style MCP fill:#1b3a4b,stroke:#e0c97f,color:#fff

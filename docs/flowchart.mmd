@@ -1,0 +1,44 @@
+flowchart TD
+    Start([App Launch]) --> LoadSettings[Load Settings\nfrom JSON]
+    LoadSettings --> CreateWindow[Create BrowserWindow\nLoad index.html]
+    CreateWindow --> ConnectMCP[Connect to Sefaria\nMCP Servers]
+    ConnectMCP --> Ready([App Ready])
+    
+    Ready --> |"User opens Settings"| SettingsFlow
+    Ready --> |"User sends message"| ChatFlow
+    Ready --> |"Auto-update check"| UpdateFlow
+    
+    subgraph SettingsFlow["Settings Flow"]
+        ConfigProvider[Select Provider\n& Model] --> SaveKey[Enter API Key]
+        SaveKey --> PersistSettings[Save to\nsettings.json]
+    end
+    
+    subgraph ChatFlow["Chat Message Flow"]
+        UserMsg[User Message] --> RateCheck{Rate Limit\nOK?}
+        RateCheck -->|No| Wait[Wait for\nCapacity] --> RateCheck
+        RateCheck -->|Yes| SendToLLM[Stream Request\nto LLM Provider]
+        SendToLLM --> StreamChunks[Stream Text Chunks\nto Renderer via IPC]
+        SendToLLM --> ToolCall{LLM requests\ntool call?}
+        ToolCall -->|Yes| ExecTool[Execute MCP Tool\nvia sefaria-texts or\nsefaria-developers]
+        ExecTool --> ToolResult[Return Tool Result\nto LLM]
+        ToolResult --> SendToLLM
+        ToolCall -->|No| Done[Stream Complete]
+        Done --> SaveChat[Auto-save Chat\nto chats/ folder]
+        Done --> FollowUps[Generate\nFollow-up Questions]
+        StreamChunks --> RenderMD[Render Markdown\n+ Mermaid + LaTeX]
+        RenderMD --> LinkCitations[Auto-link Sefaria\nReferences]
+    end
+    
+    subgraph UpdateFlow["Auto-Update Flow"]
+        CheckUpdate[Check GitHub\nReleases] --> HasUpdate{Update\nAvailable?}
+        HasUpdate -->|No| UpToDate[Show 'Up to Date'\nin bold green]
+        HasUpdate -->|Yes| Download[Download Update\nwith Progress Bar]
+        Download --> ReadyInstall[Show 'Restart\n& Install' Button]
+        ReadyInstall --> Install[Quit & Install\nNew Version]
+    end
+    
+    style Start fill:#e0c97f,stroke:#333,color:#333
+    style Ready fill:#e0c97f,stroke:#333,color:#333
+    style ChatFlow fill:#1b4332,stroke:#e0c97f,color:#fff
+    style SettingsFlow fill:#16213e,stroke:#e0c97f,color:#fff
+    style UpdateFlow fill:#2d132c,stroke:#e0c97f,color:#fff

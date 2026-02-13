@@ -1,0 +1,60 @@
+sequenceDiagram
+    actor User
+    participant UI as Renderer<br/>(renderer.js)
+    participant PL as Preload<br/>(preload.ts)
+    participant IPC as IPC Handlers<br/>(main.ts)
+    participant CE as Chat Engine<br/>(chat-engine.ts)
+    participant LLM as LLM Provider<br/>(e.g. Gemini)
+    participant MCP as MCP Client<br/>(mcp-client.ts)
+    participant Sefaria as Sefaria MCP<br/>Servers
+
+    User->>UI: Types message & presses Enter
+    UI->>PL: api.sendMessage(text, responseLength)
+    PL->>IPC: ipcRenderer.invoke('send-message', {...})
+    IPC->>CE: chatEngine.sendMessage(...)
+    
+    Note over CE: Rate limit check<br/>(wait if needed)
+    
+    CE->>LLM: streamChat(history, systemPrompt, tools, onChunk)
+    
+    loop Streaming Response
+        LLM-->>CE: onTextChunk(chunk)
+        CE-->>IPC: onTextChunk callback
+        IPC-->>PL: webContents.send('chat-stream', {chunk})
+        PL-->>UI: onChatStream callback
+        UI-->>User: Render Markdown incrementally
+    end
+    
+    LLM-->>CE: StreamResult {text, functionCalls}
+    
+    opt Tool Calls Requested (up to 10 rounds)
+        loop For each functionCall
+            CE-->>IPC: onToolStatus(toolName, 'calling')
+            IPC-->>PL: webContents.send('tool-status', {...})
+            PL-->>UI: Show tool badge
+            CE->>MCP: callTool(name, args)
+            MCP->>Sefaria: HTTP/SSE request
+            Sefaria-->>MCP: Tool result
+            MCP-->>CE: Return result
+            CE-->>IPC: onToolStatus(toolName, 'done')
+            IPC-->>PL: webContents.send('tool-status', {...})
+        end
+        
+        Note over CE: Add tool results to history
+        CE->>LLM: streamChat(updated history, ...)
+        
+        loop More Streaming
+            LLM-->>CE: onTextChunk(chunk)
+            CE-->>IPC: onTextChunk callback
+            IPC-->>UI: chat-stream event
+        end
+    end
+    
+    CE-->>IPC: sendMessage resolves
+    IPC-->>PL: Auto-save chat to disk
+    IPC->>PL: webContents.send('chat-stream-end', {followUps})
+    PL-->>UI: onChatStreamEnd callback
+    UI-->>User: Render final markdown,<br/>auto-link citations,<br/>show follow-ups
+    
+    IPC->>PL: webContents.send('usage-update', {...})
+    PL-->>UI: Update rate limit bar
