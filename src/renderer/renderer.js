@@ -13,10 +13,7 @@ const api = /** @type {any} */ (window).sefaria;
 
 // ── DOM elements ──────────────────────────────────────────────────────
 const setupOverlay   = /** @type {HTMLDivElement}       */ (document.getElementById('setup-overlay'));
-const setupProvider  = /** @type {HTMLSelectElement}     */ (document.getElementById('setup-provider'));
 const setupApiKey    = /** @type {HTMLInputElement}      */ (document.getElementById('setup-api-key'));
-const setupSaveBtn   = /** @type {HTMLButtonElement}     */ (document.getElementById('setup-save-btn'));
-const setupKeyLink   = /** @type {HTMLAnchorElement}     */ (document.getElementById('setup-key-link'));
 
 const settingsPanel  = /** @type {HTMLDivElement}       */ (document.getElementById('settings-panel'));
 const settingsProvider = /** @type {HTMLSelectElement}   */ (document.getElementById('settings-provider'));
@@ -532,6 +529,7 @@ function createAssistantMessage() {
             }
         },
         showError(msg, retryable) {
+            hideThinking();
             let html = `<div class="error-message">`;
             html += `<span class="error-text">${escapeHtml(msg)}</span>`;
             if (retryable) {
@@ -792,38 +790,150 @@ reconnectBtn.addEventListener('click', async () => {
     await api.reconnectMcp();
 });
 
-// Setup save
-setupSaveBtn.addEventListener('click', async () => {
-    const providerId = setupProvider.value;
-    const providerInfo = providers.find(p => p.id === providerId);
-    const needsKey = providerInfo?.requiresKey !== false;
-    const key = setupApiKey.value.trim();
-    if (needsKey && !key) return;
-    const modelId = providerInfo?.defaultModel || '';
-    await api.saveProviderConfig({ providerId, modelId, apiKey: key || undefined });
-    activeProviderId = providerId;
-    activeModelId = modelId;
-    hideSetup();
-    // Refresh model picker after initial setup
-    await refreshModelPicker();
-});
+// ── Setup Wizard ──────────────────────────────────────────────────────
+let wizardProviderId = 'gemini';
 
-setupApiKey.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') setupSaveBtn.click();
-});
+/** Navigate to a wizard page and update step indicators */
+function wizardGoTo(pageNum) {
+    // Update pages
+    document.querySelectorAll('.wizard-page').forEach(p => p.classList.remove('active'));
+    const target = document.querySelector(`.wizard-page[data-page="${pageNum}"]`);
+    if (target) target.classList.add('active');
 
-// Update setup overlay when provider dropdown changes
-setupProvider.addEventListener('change', () => {
-    const p = providers.find(pr => pr.id === setupProvider.value);
-    if (p) {
-        const needsKey = p.requiresKey !== false;
-        setupApiKey.placeholder = needsKey ? p.keyPlaceholder : 'No API key needed';
-        setupApiKey.disabled = !needsKey;
-        setupApiKey.style.display = needsKey ? '' : 'none';
-        setupKeyLink.href = p.keyHelpUrl;
-        setupKeyLink.textContent = needsKey ? p.keyHelpLabel : `${p.keyHelpLabel} — no API key required`;
-        setupSaveBtn.textContent = needsKey ? 'Get Started' : 'Use ' + p.name;
+    // Update step indicators
+    document.querySelectorAll('.wizard-step').forEach(s => {
+        const step = parseInt(/** @type {HTMLElement} */ (s).dataset.step || '0', 10);
+        s.classList.remove('active', 'completed');
+        if (step === pageNum) s.classList.add('active');
+        else if (step < pageNum) s.classList.add('completed');
+    });
+
+    // Update step lines
+    const lines = document.querySelectorAll('.wizard-step-line');
+    lines.forEach((line, i) => {
+        line.classList.toggle('active', i + 1 < pageNum);
+    });
+}
+
+/** Populate wizard provider cards from the loaded providers list */
+function populateWizardProviders() {
+    const container = document.getElementById('wizard-provider-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    /** @type {Record<string, string>} */
+    const providerDescriptions = {
+        gemini: 'Google\'s Gemini models — free tier available',
+        openai: 'GPT-4o and GPT-4o mini',
+        anthropic: 'Claude 4 Sonnet and Claude 3.5 models',
+        grok: 'xAI Grok 3 models',
+        mistral: 'Mistral Small, Medium & Large',
+        deepseek: 'DeepSeek-V3 and R1 reasoning',
+        ollama: 'Run models locally on your machine',
+    };
+
+    for (const p of providers) {
+        const card = document.createElement('div');
+        card.className = 'wizard-provider-card' + (p.id === wizardProviderId ? ' selected' : '');
+        card.dataset.providerId = p.id;
+
+        const desc = providerDescriptions[p.id] || '';
+        const badge = p.requiresKey === false
+            ? '<span class="wizard-provider-badge local">Local</span>'
+            : (p.id === 'gemini' ? '<span class="wizard-provider-badge free">Free tier</span>' : '');
+
+        card.innerHTML = `
+            <div class="wizard-provider-radio"><div class="wizard-provider-radio-dot"></div></div>
+            <div class="wizard-provider-info">
+                <div class="wizard-provider-name">${escapeHtml(p.name)}</div>
+                <div class="wizard-provider-detail">${escapeHtml(desc)}</div>
+            </div>
+            ${badge}`;
+
+        card.addEventListener('click', () => {
+            container.querySelectorAll('.wizard-provider-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            wizardProviderId = p.id;
+        });
+
+        container.appendChild(card);
     }
+}
+
+/** Update wizard step 3 (API key) based on the selected provider */
+function updateWizardKeyStep() {
+    const p = providers.find(pr => pr.id === wizardProviderId);
+    if (!p) return;
+
+    const needsKey = p.requiresKey !== false;
+    const title = document.getElementById('wizard-key-title');
+    const desc = document.getElementById('wizard-key-desc');
+    const steps = document.getElementById('wizard-key-steps');
+    const keyLink = document.getElementById('wizard-key-link');
+    const finishBtn = document.getElementById('wizard-finish-btn');
+    const errorEl = document.getElementById('wizard-key-error');
+
+    if (errorEl) errorEl.classList.add('hidden');
+
+    if (needsKey) {
+        if (title) title.textContent = `Enter Your ${p.name} API Key`;
+        if (desc) desc.textContent = 'Your key is stored locally on your computer and never shared with anyone.';
+        if (steps) steps.classList.remove('hidden');
+        if (keyLink) {
+            keyLink.href = p.keyHelpUrl;
+            keyLink.textContent = p.keyHelpLabel;
+        }
+        setupApiKey.placeholder = p.keyPlaceholder;
+        setupApiKey.disabled = false;
+        setupApiKey.style.display = '';
+        setupApiKey.parentElement.style.display = '';
+        if (finishBtn) finishBtn.textContent = 'Start Chatting \u2192';
+    } else {
+        if (title) title.textContent = `${p.name} is Ready`;
+        if (desc) desc.textContent = `${p.name} runs locally — no API key needed. Make sure Ollama is running on your machine.`;
+        if (steps) steps.classList.add('hidden');
+        setupApiKey.parentElement.style.display = 'none';
+        if (finishBtn) finishBtn.textContent = 'Start Chatting \u2192';
+    }
+}
+
+// Wire wizard navigation buttons (Next / Back)
+document.querySelectorAll('.wizard-btn[data-next]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const nextPage = parseInt(/** @type {HTMLElement} */ (btn).dataset.next || '1', 10);
+        // When moving to step 3, update key step UI
+        if (nextPage === 3) updateWizardKeyStep();
+        wizardGoTo(nextPage);
+    });
+});
+
+// Wire finish button
+const wizardFinishBtn = document.getElementById('wizard-finish-btn');
+if (wizardFinishBtn) {
+    wizardFinishBtn.addEventListener('click', async () => {
+        const p = providers.find(pr => pr.id === wizardProviderId);
+        const needsKey = p?.requiresKey !== false;
+        const key = setupApiKey.value.trim();
+        const errorEl = document.getElementById('wizard-key-error');
+
+        if (needsKey && !key) {
+            if (errorEl) errorEl.classList.remove('hidden');
+            setupApiKey.focus();
+            return;
+        }
+
+        const modelId = p?.defaultModel || '';
+        await api.saveProviderConfig({ providerId: wizardProviderId, modelId, apiKey: key || undefined });
+        activeProviderId = wizardProviderId;
+        activeModelId = modelId;
+        hideSetup();
+        await refreshModelPicker();
+    });
+}
+
+// Allow Enter key to submit on the API key input
+setupApiKey.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && wizardFinishBtn) wizardFinishBtn.click();
 });
 
 // Settings save
@@ -1248,6 +1358,12 @@ api.onUpdateStatus((data) => {
         updateCheckStatus.className = 'update-check-status';
         // Hide progress bar
         if (progressRow) progressRow.classList.add('hidden');
+    } else if (data.status === 'error') {
+        // Download failed — hide the banner and show error in settings
+        updateBar.classList.add('hidden');
+        if (progressRow) progressRow.classList.add('hidden');
+        updateCheckStatus.textContent = `Update failed: ${data.error || 'unknown error'}`;
+        updateCheckStatus.className = 'update-check-status';
     }
 });
 
@@ -1373,14 +1489,8 @@ async function refreshActivatedProviders() {
         providers = [];
     }
 
-    // Populate setup provider dropdown
-    setupProvider.innerHTML = '';
-    for (const p of providers) {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name;
-        setupProvider.appendChild(opt);
-    }
+    // Populate wizard provider cards
+    populateWizardProviders();
 
     // Populate settings provider dropdown
     settingsProvider.innerHTML = '';
@@ -1397,22 +1507,13 @@ async function refreshActivatedProviders() {
         activeProviderId = config.providerId || 'gemini';
         activeModelId = config.modelId || '';
 
-        // Pre-select current provider in dropdowns
-        setupProvider.value = activeProviderId;
+        // Pre-select current provider in settings dropdown
         settingsProvider.value = activeProviderId;
 
-        const currentProvider = providers.find(p => p.id === activeProviderId);
+        // Pre-select in wizard
+        wizardProviderId = activeProviderId;
 
-        // Update setup overlay placeholder/link
-        if (currentProvider) {
-            const needsKey = currentProvider.requiresKey !== false;
-            setupApiKey.placeholder = needsKey ? currentProvider.keyPlaceholder : 'No API key needed';
-            setupApiKey.disabled = !needsKey;
-            setupApiKey.style.display = needsKey ? '' : 'none';
-            setupKeyLink.href = currentProvider.keyHelpUrl;
-            setupKeyLink.textContent = needsKey ? currentProvider.keyHelpLabel : `${currentProvider.keyHelpLabel} — no API key required`;
-            setupSaveBtn.textContent = needsKey ? 'Get Started' : 'Use ' + currentProvider.name;
-        }
+        const currentProvider = providers.find(p => p.id === activeProviderId);
 
         // Populate settings model dropdown
         populateModelDropdown(settingsModel, currentProvider);

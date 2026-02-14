@@ -18,46 +18,94 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Setup overlay (shown when no API key is set) -->
-    <div id="setup-overlay" class="hidden">
-        <div class="setup-card">
-            <div class="setup-logo">
-                <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="8" width="10" height="48" rx="5" fill="#8B6914" stroke="#5C4410" stroke-width="1.5"/>
-                    <rect x="50" y="8" width="10" height="48" rx="5" fill="#8B6914" stroke="#5C4410" stroke-width="1.5"/>
-                    <rect x="6" y="5" width="6" height="4" rx="2" fill="#A67C1A"/>
-                    <rect x="6" y="55" width="6" height="4" rx="2" fill="#A67C1A"/>
-                    <rect x="52" y="5" width="6" height="4" rx="2" fill="#A67C1A"/>
-                    <rect x="52" y="55" width="6" height="4" rx="2" fill="#A67C1A"/>
-                    <rect x="14" y="12" width="36" height="40" rx="2" fill="#F5F0E0" stroke="#C4B07A" stroke-width="0.75"/>
-                    <line x1="18" y1="20" x2="46" y2="20" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
-                    <line x1="18" y1="26" x2="46" y2="26" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
-                    <line x1="18" y1="32" x2="46" y2="32" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
-                    <line x1="18" y1="38" x2="46" y2="38" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
-                    <line x1="18" y1="44" x2="38" y2="44" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
-                </svg>
-            </div>
-            <h1>Sefaria Chat</h1>
-            <p>Explore Jewish texts from the Sefaria digital library, powered by AI.</p>
-            <p class="setup-subtitle">Choose your AI provider and enter your API key.</p>
-            <div class="setup-provider-row">
-                <select id="setup-provider" class="provider-select">
-                    <!-- Populated dynamically -->
-                </select>
-            </div>
-            <div class="setup-input-group">
-                <input type="password" id="setup-api-key" placeholder="AIza..." autocomplete="off">
-                <button id="setup-save-btn">Get Started</button>
-            </div>
-            <p class="setup-hint">Your key is stored locally and never shared. Get a key from <a id="setup-key-link" href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a>.</p>
-            <p class="setup-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>. It uses Sefaria's publicly available <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP servers</a>.<br>&copy; 2026 Jason Leznek</p>
-        </div>
-    </div><!-- end setup-overlay -->
-
     <!-- Wrapper for side-by-side layout -->
     <div id="split-container">
     <!-- Main app -->
     <div id="app">
+        <!-- Setup wizard (shown on first run when no API key is set) -->
+        <div id="setup-overlay" class="hidden">
+            <div class="setup-card wizard-card">
+
+                <!-- Step indicators -->
+                <div class="wizard-steps">
+                    <div class="wizard-step active" data-step="1"><span>1</span></div>
+                    <div class="wizard-step-line"></div>
+                    <div class="wizard-step" data-step="2"><span>2</span></div>
+                    <div class="wizard-step-line"></div>
+                    <div class="wizard-step" data-step="3"><span>3</span></div>
+                </div>
+
+                <!-- Step 1: Welcome -->
+                <div class="wizard-page active" data-page="1">
+                    <div class="setup-logo">
+                        <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="4" y="8" width="10" height="48" rx="5" fill="#8B6914" stroke="#5C4410" stroke-width="1.5"/>
+                            <rect x="50" y="8" width="10" height="48" rx="5" fill="#8B6914" stroke="#5C4410" stroke-width="1.5"/>
+                            <rect x="6" y="5" width="6" height="4" rx="2" fill="#A67C1A"/>
+                            <rect x="6" y="55" width="6" height="4" rx="2" fill="#A67C1A"/>
+                            <rect x="52" y="5" width="6" height="4" rx="2" fill="#A67C1A"/>
+                            <rect x="52" y="55" width="6" height="4" rx="2" fill="#A67C1A"/>
+                            <rect x="14" y="12" width="36" height="40" rx="2" fill="#F5F0E0" stroke="#C4B07A" stroke-width="0.75"/>
+                            <line x1="18" y1="20" x2="46" y2="20" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
+                            <line x1="18" y1="26" x2="46" y2="26" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
+                            <line x1="18" y1="32" x2="46" y2="32" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
+                            <line x1="18" y1="38" x2="46" y2="38" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
+                            <line x1="18" y1="44" x2="38" y2="44" stroke="#B8A67A" stroke-width="1" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h1>Welcome to Sefaria Chat</h1>
+                    <p>Explore Jewish texts from the Sefaria digital library, powered by AI.</p>
+                    <div class="wizard-feature-list">
+                        <div class="wizard-feature-item"><span class="wizard-feature-icon">✓</span> Ask questions about Torah, Talmud, Midrash &amp; more</div>
+                        <div class="wizard-feature-item"><span class="wizard-feature-icon">✓</span> Get answers grounded in primary sources</div>
+                        <div class="wizard-feature-item"><span class="wizard-feature-icon">✓</span> Create diagrams, timelines &amp; comparisons</div>
+                    </div>
+                    <p class="setup-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>. It uses Sefaria's publicly available <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP servers</a>.<br>&copy; 2026 Jason Leznek</p>
+                    <button class="wizard-btn wizard-next-btn" data-next="2">Get Started</button>
+                </div>
+
+                <!-- Step 2: Choose provider -->
+                <div class="wizard-page" data-page="2">
+                    <h2>Choose an AI Provider</h2>
+                    <p>Select which AI model will power your chats. You can change this later in Settings.</p>
+                    <div id="wizard-provider-list" class="wizard-provider-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                    <div class="wizard-nav">
+                        <button class="wizard-btn wizard-back-btn" data-next="1">&larr; Back</button>
+                        <button id="wizard-provider-next" class="wizard-btn wizard-next-btn" data-next="3">Next &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: API key -->
+                <div class="wizard-page" data-page="3">
+                    <h2 id="wizard-key-title">Enter Your API Key</h2>
+                    <p id="wizard-key-desc">Your key is stored locally on your computer and never shared with anyone.</p>
+                    <div id="wizard-key-steps" class="wizard-key-steps">
+                        <div class="wizard-key-step">
+                            <span class="wizard-key-step-num">1</span>
+                            <span>Visit <a id="wizard-key-link" href="#" target="_blank">your provider's key page</a></span>
+                        </div>
+                        <div class="wizard-key-step">
+                            <span class="wizard-key-step-num">2</span>
+                            <span>Create a new API key and copy it</span>
+                        </div>
+                        <div class="wizard-key-step">
+                            <span class="wizard-key-step-num">3</span>
+                            <span>Paste it below</span>
+                        </div>
+                    </div>
+                    <div class="setup-input-group" style="justify-content: center;">
+                        <input type="password" id="setup-api-key" placeholder="AIza..." autocomplete="off" style="max-width: 320px;">
+                    </div>
+                    <p id="wizard-key-error" class="wizard-key-error hidden">Please enter your API key to continue.</p>
+                    <div class="wizard-nav">
+                        <button class="wizard-btn wizard-back-btn" data-next="2">&larr; Back</button>
+                        <button id="wizard-finish-btn" class="wizard-btn wizard-next-btn">Start Chatting &rarr;</button>
+                    </div>
+                </div>
+            </div>
+        </div><!-- end setup-overlay -->
         <!-- Header -->
         <header id="header">
             <div class="header-left">

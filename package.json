@@ -1,7 +1,7 @@
 {
   "name": "sefaria",
   "productName": "Sefaria Chat",
-  "version": "1.4.0",
+  "version": "0.9.0",
   "description": "Explore Jewish texts from the Sefaria digital library, powered by AI",
   "author": {
     "name": "Jason Leznek"
@@ -19,7 +19,8 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "dist:store": "npm run build && electron-builder --win appx",
     "dist:mac": "echo macOS build disabled",
     "dist:linux": "echo Linux build disabled"
   },
@@ -86,10 +87,18 @@
       }
     },
     "nsis": {
-      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+      "artifactName": "Sefaria-Chat-Setup-${version}-${arch}.${ext}"
     },
     "portable": {
-      "artifactName": "${productName}-Portable-${version}-${arch}.${ext}"
+      "artifactName": "Sefaria-Chat-Portable-${version}-${arch}.${ext}"
+    },
+    "appx": {
+      "identityName": "REPLACE_WITH_PARTNER_CENTER_IDENTITY",
+      "publisher": "CN=REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID",
+      "publisherDisplayName": "Jason Leznek",
+      "applicationId": "SefariaChat",
+      "displayName": "Sefaria Chat",
+      "languages": ["en-US"]
     },
     "mac": {
       "target": [

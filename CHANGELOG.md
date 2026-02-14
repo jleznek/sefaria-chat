@@ -2,77 +2,27 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
-## [1.4.0]
+## [0.9.0]
 
-- **New provider: xAI (Grok)** — Added support for Grok 3, Grok 3 Fast, Grok 3 Mini, and Grok 3 Mini Fast via xAI's OpenAI-compatible API
-- **New provider: Mistral AI** — Added support for Mistral Small, Mistral Medium, and Mistral Large
-- **New provider: DeepSeek** — Added support for DeepSeek-V3 and DeepSeek-R1
-- All three new providers support full streaming, tool calling, and follow-up generation with no additional dependencies
-
-## [1.3.2]
-
-- **Changelog fix**: Fixed blank changelog in Settings About by including CHANGELOG.md in packaged app
-- **Update progress bar**: Added a visual progress bar in Settings when downloading an update
-- **Up-to-date styling**: "You're up to date" message now displays in bold green
-
-## [1.3.1]
-
-- **About section**: Added About page in Settings with changelog, GitHub link, donate link, and copyright
-- **Version in title bar**: Window title now shows the app version
-- **Copyright update**: Updated copyright year to 2026
-
-## [1.3.0]
-
-- **Ollama timeout handling**: Added first-token timeout (3 min) and idle timeout (60s) to prevent infinite "Thinking..." state when a model is loading or stalls
-- **Randomized suggested prompts**: Pool of 24 diverse prompts; 6 are randomly picked each time (initial load, clear, new chat)
-- **About section**: Added About page in Settings with changelog, GitHub link, donate link, and copyright
-- **Version in title bar**: Window title now shows the app version
-- **Copyright update**: Updated copyright year to 2026
-
-## [1.2.5]
-
-- **Update check fix**: Fixed update check when already on the latest version
-- **UI cleanup**: Removed overlay icon, updated placeholder text
-- **CI fix**: Fixed CI workflow for builds
-
-## [1.2.4]
-
-- **Settings redesign**: Merged "AI Provider & Model" and "API Key" into a single "Add a Provider" section
-- **Click to set default**: Click any configured provider in the Active Providers list to make it the default
-- **Remove provider**: Added ability to remove a provider's saved API key from the Active Providers list
-- **Attribution & disclaimer**: Added notices throughout the app (setup screen, settings, footer, system prompt) clarifying this app is not developed by or affiliated with Sefaria.org
-- **Copyright**: Added © Jason Leznek to setup screen, settings, footer, and README
-
-## [1.2.3]
-
-- **Linux build fix**: Added author email for maintainer field in deb packages
-
-## [1.2.2]
-
-- **Auto-update fix**: Fixed install using setImmediate and forceRunAfter
-
-## [1.2.1]
-
-- **Settings redesign**: Added check-for-updates button and activated providers display
-
-## [1.2.0]
-
-- **Auto-update support**: Added electron-updater for automatic updates from GitHub Releases
-- Updates download in background and show a banner when ready to install
-
-## [1.1.1]
-
-- **Rate limit fix**: Fixed false rate-limit errors — RESOURCE_EXHAUSTED no longer falsely reported when it's an output token limit
-- **Mermaid diagrams**: Added Mermaid.js for rendering diagrams from LLM responses
-
-## [1.1.0]
-
-- **Print preview**: Generate a PDF preview of your conversation from within the app
-- **Citation auto-linking**: Sefaria text references are automatically hyperlinked for all providers
-- **Icon improvements**: Regenerated icon.ico with 7 sizes (16–256px) for proper taskbar display
-- **Code signing**: Configured x64 + arm64 builds with code signing
-- **Installer**: Separate NSIS installer and portable artifact names per architecture
-
-## [1.0.0]
-
-- Initial release
+- **First-run setup wizard** — 3-step guided onboarding: Welcome, Choose Provider, Enter API Key
+- **Embedded browser during wizard** — Links clicked during setup open in the side-by-side browser pane
+- **Improved error reporting** — Chat engine init errors now show descriptive messages instead of generic failure
+- **Thinking indicator fix** — "Thinking..." no longer stays visible when an error occurs
+- **Auto-update error handling** — Download failures now display in the UI instead of silently failing
+- **Artifact naming fix** — Fixed filename mismatch between GitHub release assets and update manifest
+- **Dev-mode guard** — Auto-updater no longer runs during development
+- **New provider: xAI (Grok)** — Grok 3, Grok 3 Fast, Grok 3 Mini, and Grok 3 Mini Fast
+- **New provider: Mistral AI** — Mistral Small, Medium, and Large
+- **New provider: DeepSeek** — DeepSeek-V3 and DeepSeek-R1
+- **7 AI providers** — Google Gemini, OpenAI, Anthropic, xAI Grok, Mistral, DeepSeek, and Ollama (local)
+- **Sefaria MCP integration** — Query the library of Jewish texts and Sefaria developer API via MCP
+- **Streaming responses** — Real-time streamed AI responses with tool-call indicators
+- **Citation auto-linking** — Sefaria text references are automatically hyperlinked
+- **Mermaid diagrams** — Render diagrams from AI responses
+- **Chat history** — Save, load, and manage multiple conversations
+- **Settings page** — Manage providers, API keys, auto-scroll, and check for updates
+- **Auto-updates** — Automatic update detection, download, and install via GitHub Releases
+- **Embedded browser** — Side-by-side webview pane for Sefaria links
+- **Print conversations** — Generate a printable PDF of your chat
+- **Randomized prompts** — Pool of 24 suggested prompts, 6 shown at random
+- **Ollama support** — Run local models with automatic model detection and timeout handling

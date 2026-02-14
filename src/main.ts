@@ -373,15 +373,22 @@ async function initMcp(): Promise<void> {
 function setupIpcHandlers(): void {
     // ── Provider management ─────────────────────────────────────────
 
-    function initChatEngine(providerId: string, apiKey: string, modelId?: string): boolean {
-        if (!mcpManager) { return false; }
+    function initChatEngine(providerId: string, apiKey: string, modelId?: string): string | true {
+        if (!mcpManager) {
+            console.error('[initChatEngine] mcpManager is null');
+            return 'MCP servers not connected. Please restart the app.';
+        }
         const provider = createProvider(providerId, apiKey, modelId);
-        if (!provider) { return false; }
+        if (!provider) {
+            console.error(`[initChatEngine] createProvider returned null for "${providerId}"`);
+            return `Unknown provider "${providerId}". Please check Settings.`;
+        }
         if (chatEngine) {
             chatEngine.updateProvider(provider, modelId);
         } else {
             chatEngine = new ChatEngine(provider, mcpManager, modelId);
         }
+        console.log(`[initChatEngine] success: provider=${providerId}, model=${modelId || 'default'}`);
         return true;
     }
 
@@ -618,7 +625,10 @@ function setupIpcHandlers(): void {
                         error: 'MCP servers not connected. Please restart the app.',
                     };
                 }
-                initChatEngine(providerId, apiKey, settings.model);
+                const initResult = initChatEngine(providerId, apiKey, settings.model);
+                if (initResult !== true) {
+                    return { error: initResult };
+                }
             }
 
             if (!chatEngine) {
@@ -767,6 +777,12 @@ function setupIpcHandlers(): void {
 // ── Auto-updater ─────────────────────────────────────────────────────
 
 function setupAutoUpdater(): void {
+    // Windows Store apps update through the Store itself
+    if (process.windowsStore) {
+        console.log('[updater] running as Store app, skipping auto-updater');
+        return;
+    }
+
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -803,6 +819,10 @@ function setupAutoUpdater(): void {
 
     autoUpdater.on('error', (err) => {
         console.error('[updater] error:', err.message);
+        mainWindow?.webContents.send('update-status', {
+            status: 'error',
+            error: err.message,
+        });
     });
 
     ipcMain.handle('install-update', () => {
@@ -815,6 +835,10 @@ function setupAutoUpdater(): void {
     });
 
     ipcMain.handle('check-for-updates', async () => {
+        if (!app.isPackaged) {
+            console.log('[updater] skipping update check in dev mode');
+            return { version: null };
+        }
         try {
             const result = await autoUpdater.checkForUpdates();
             const latestVersion = result?.updateInfo?.version || null;
@@ -855,10 +879,35 @@ app.whenReady().then(async () => {
     setupAutoUpdater();
     await initMcp();
 
-    // Check for updates after startup (delay to avoid slowing launch)
-    setTimeout(() => {
-        autoUpdater.checkForUpdates().catch(() => { /* ignore */ });
-    }, 5000);
+    // Eagerly initialize chat engine with saved settings so the first message
+    // doesn't have to wait. Failure here is non-fatal; lazy init will retry.
+    if (mcpManager) {
+        const settings = loadSettings();
+        const providerId = settings.provider || 'gemini';
+        const providerMeta = AVAILABLE_PROVIDERS.find(p => p.id === providerId);
+        const keyRequired = providerMeta?.requiresKey !== false;
+        const apiKey = settings.apiKeys?.[providerId] || '';
+        if (!keyRequired || apiKey) {
+            const result = createProvider(providerId, apiKey, settings.model);
+            if (result) {
+                chatEngine = new ChatEngine(result, mcpManager, settings.model);
+                console.log(`[startup] chat engine ready: provider=${providerId}, model=${settings.model || 'default'}`);
+            } else {
+                console.warn(`[startup] could not create provider "${providerId}"`);
+            }
+        } else {
+            console.log(`[startup] no API key for "${providerId}", skipping chat engine init`);
+        }
+    }
+
+    // Only auto-check for updates in packaged (production) builds
+    if (app.isPackaged) {
+        setTimeout(() => {
+            autoUpdater.checkForUpdates().catch(() => { /* ignore */ });
+        }, 5000);
+    } else {
+        console.log('[updater] skipping auto-update check in dev mode');
+    }
 });
 
 app.on('window-all-closed', async () => {
