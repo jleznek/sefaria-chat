@@ -83,7 +83,7 @@
         "signingHashAlgorithms": [
           "sha256"
         ],
-        "certificateSubjectName": "Sefaria Chat"
+        "certificateSha1": "A58C78144E04F58D9978A14A13181B8E5C8E828F"
       }
     },
     "nsis": {
@@ -93,8 +93,8 @@
       "artifactName": "Sefaria-Chat-Portable-${version}-${arch}.${ext}"
     },
     "appx": {
-      "identityName": "REPLACE_WITH_PARTNER_CENTER_IDENTITY",
-      "publisher": "CN=REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID",
+      "identityName": "JasonLeznek.SefariaChat",
+      "publisher": "CN=542357D7-3FB8-4981-A7C6-D9CD31401BA0",
       "publisherDisplayName": "Jason Leznek",
       "applicationId": "SefariaChat",
       "displayName": "Sefaria Chat",
