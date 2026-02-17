@@ -22,4 +22,4 @@ Sefaria Chat does not include any analytics, telemetry, crash reporting, or trac
 
 ## Contact
 
-If you have questions about this policy, contact jleznek@gmail.com.
+If you have questions about this policy, contact jleznek@leznekconsulting.onmicrosoft.com.
