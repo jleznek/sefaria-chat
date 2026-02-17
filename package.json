@@ -20,7 +20,7 @@
     "lint": "eslint src",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win nsis portable",
-    "dist:store": "npm run build && electron-builder --win appx",
+    "dist:store": "npm run build && electron-builder --win appx --x64 --arm64",
     "dist:mac": "echo macOS build disabled",
     "dist:linux": "echo Linux build disabled"
   },
@@ -98,7 +98,8 @@
       "publisherDisplayName": "Jason Leznek",
       "applicationId": "SefariaChat",
       "displayName": "Sefaria Chat",
-      "languages": ["en-US"]
+      "languages": ["en-US"],
+      "artifactName": "Sefaria Chat ${version} ${arch}.${ext}"
     },
     "mac": {
       "target": [
