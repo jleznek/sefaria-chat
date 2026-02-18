@@ -2,6 +2,12 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [0.9.1]
+
+- **Store certification compliance** — Removed clickable download link for Ollama; replaced with plain-text dependency notice per Microsoft Store policy
+- **NPU-gated Ollama option** — Ollama provider is now hidden on devices without a Neural Processing Unit (NPU)
+- **Updated Ollama messaging** — All Ollama references now inform users of the dependency requirement without offering install/download links
+
 ## [0.9.0]
 
 - **First-run setup wizard** — 3-step guided onboarding: Welcome, Choose Provider, Enter API Key

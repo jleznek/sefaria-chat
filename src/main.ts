@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, screen, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execSync } from 'child_process';
 import { autoUpdater } from 'electron-updater';
 import { McpClientManager } from './mcp-client';
 import { ChatEngine } from './chat-engine';
@@ -19,6 +20,35 @@ let mainWindow: BrowserWindow | null = null;
 let mcpManager: McpClientManager | null = null;
 let chatEngine: ChatEngine | null = null;
 let currentChatId: string | null = null;
+
+// ── NPU detection (cached) ────────────────────────────────────────────
+
+let _npuDetected: boolean | null = null;
+
+/** Check whether this device has a Neural Processing Unit (NPU). */
+function hasNpu(): boolean {
+    if (_npuDetected !== null) return _npuDetected;
+    if (process.platform !== 'win32') {
+        _npuDetected = false;
+        return false;
+    }
+    try {
+        const out = execSync(
+            'powershell -NoProfile -Command "Get-PnpDevice -PresentOnly | Where-Object { $_.FriendlyName -match \'NPU|Neural Processing\' } | Select-Object -First 1 -ExpandProperty FriendlyName"',
+            { timeout: 5000, encoding: 'utf8', windowsHide: true },
+        );
+        _npuDetected = out.trim().length > 0;
+    } catch {
+        _npuDetected = false;
+    }
+    return _npuDetected;
+}
+
+/** Return the provider list, hiding Ollama when no NPU is present. */
+function getVisibleProviders() {
+    if (hasNpu()) return AVAILABLE_PROVIDERS;
+    return AVAILABLE_PROVIDERS.filter(p => p.id !== 'ollama');
+}
 
 // ── Settings persistence ──────────────────────────────────────────────
 
@@ -393,8 +423,10 @@ function setupIpcHandlers(): void {
     }
 
     ipcMain.handle('get-providers', () => {
-        return AVAILABLE_PROVIDERS;
+        return getVisibleProviders();
     });
+
+    ipcMain.handle('has-npu', () => hasNpu());
 
     ipcMain.handle('get-provider-config', () => {
         const settings = loadSettings();
@@ -411,7 +443,7 @@ function setupIpcHandlers(): void {
     /** Return all providers annotated with which ones have a saved API key. */
     ipcMain.handle('get-configured-providers', () => {
         const settings = loadSettings();
-        return AVAILABLE_PROVIDERS.map(p => ({
+        return getVisibleProviders().map(p => ({
             ...p,
             // Keyless providers (Ollama) are always considered "configured"
             hasKey: p.requiresKey === false || !!(settings.apiKeys?.[p.id]),

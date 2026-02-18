@@ -829,7 +829,7 @@ function populateWizardProviders() {
         grok: 'xAI Grok 3 models',
         mistral: 'Mistral Small, Medium & Large',
         deepseek: 'DeepSeek-V3 and R1 reasoning',
-        ollama: 'Run models locally on your machine',
+        ollama: 'Run models locally — requires Ollama installed',
     };
 
     for (const p of providers) {
@@ -890,7 +890,7 @@ function updateWizardKeyStep() {
         if (finishBtn) finishBtn.textContent = 'Start Chatting \u2192';
     } else {
         if (title) title.textContent = `${p.name} is Ready`;
-        if (desc) desc.textContent = `${p.name} runs locally — no API key needed. Make sure Ollama is running on your machine.`;
+        if (desc) desc.textContent = `${p.name} runs locally — no API key needed. This feature requires Ollama to be installed on your machine.`;
         if (steps) steps.classList.add('hidden');
         setupApiKey.parentElement.style.display = 'none';
         if (finishBtn) finishBtn.textContent = 'Start Chatting \u2192';
@@ -1057,7 +1057,7 @@ function updateSettingsKeyHint(providerInfo) {
     if (needsKey) {
         settingsKeyHint.innerHTML = `Get a key from <a href="${providerInfo.keyHelpUrl}" target="_blank">${providerInfo.keyHelpLabel}</a>. Leave blank to keep the existing key.`;
     } else {
-        settingsKeyHint.innerHTML = `<a href="${providerInfo.keyHelpUrl}" target="_blank">${providerInfo.keyHelpLabel}</a> — runs locally, no API key required.`;
+        settingsKeyHint.textContent = `${providerInfo.keyHelpLabel}. Runs locally, no API key required.`;
     }
 }
 

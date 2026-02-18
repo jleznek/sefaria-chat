@@ -24,8 +24,8 @@ export const OLLAMA_INFO: ProviderInfo = {
     rateLimit: { rpm: 9999, windowMs: 60_000 }, // effectively unlimited locally
     requiresKey: false,
     keyPlaceholder: '',
-    keyHelpUrl: 'https://ollama.com/download',
-    keyHelpLabel: 'Download Ollama',
+    keyHelpUrl: 'https://ollama.com',
+    keyHelpLabel: 'Requires Ollama installed locally',
 };
 
 /**
