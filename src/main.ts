@@ -818,6 +818,11 @@ function setupAutoUpdater(): void {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
+    // Skip Windows Authenticode chain validation for self-signed certs.
+    // Integrity is still protected by SHA-512 hash verification in latest.yml.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null);
+
     autoUpdater.on('checking-for-update', () => {
         console.log('[updater] checking for update…');
     });
