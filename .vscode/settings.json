@@ -10,5 +10,12 @@
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off",
-    "workbench.colorTheme": "Visual Studio Light"
+    "workbench.colorTheme": "Visual Studio Light",
+    "chat.tools.terminal.autoApprove": {
+        "gh": true,
+        "git add": true,
+        "git commit": true,
+        "git tag": true,
+        "git push": true
+    }
 }

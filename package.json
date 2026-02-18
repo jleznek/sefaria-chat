@@ -80,10 +80,11 @@
       ],
       "icon": "assets/icon.ico",
       "signtoolOptions": {
+        "publisherName": "Sefaria Chat",
         "signingHashAlgorithms": [
           "sha256"
         ],
-        "certificateSha1": "A58C78144E04F58D9978A14A13181B8E5C8E828F"
+        "certificateSha1": "2D04763C2A9653DE2D316790429DC8F4A18E0B74"
       }
     },
     "nsis": {
