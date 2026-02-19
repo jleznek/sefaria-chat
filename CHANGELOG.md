@@ -2,6 +2,14 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [0.9.2]
+
+- **DeepSeek balance display** — Account balance (¥) now appears in the rate limit bar for DeepSeek, refreshing after each response and periodically
+- **Standalone citation linking** — Major Jewish works (Guide for the Perplexed, Mishneh Torah, Shulchan Arukh, etc.) auto-link to Sefaria even without a chapter:verse reference
+- **Better billing error handling** — DeepSeek HTTP 402 "Insufficient Balance" errors are now detected and surfaced with a clear message
+- **UI refinement** — "RPM" replaced with "req/min" throughout the rate limit bar and model picker for clarity
+- **System prompt enhancement** — AI now hyperlinks major works by name to their Sefaria table of contents page
+
 ## [0.9.1]
 
 - **Store certification compliance** — Removed clickable download link for Ollama; replaced with plain-text dependency notice per Microsoft Store policy

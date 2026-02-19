@@ -66,6 +66,7 @@ export interface SefariaApi {
     onOpenUrl(callback: (url: string) => void): void;
     onUsageUpdate(callback: (data: { used: number; limit: number; resetsInSeconds: number }) => void): void;
     getUsageStats(): Promise<{ used: number; limit: number; resetsInSeconds: number }>;
+    getBalance(): Promise<{ balance: number; currency: string } | null>;
     resizeForWebview(open: boolean): Promise<void>;
     printChat(html: string): Promise<void>;
 
@@ -138,6 +139,7 @@ contextBridge.exposeInMainWorld('sefaria', {
         ipcRenderer.on('usage-update', (_event, data) => callback(data));
     },
     getUsageStats: () => ipcRenderer.invoke('get-usage-stats'),
+    getBalance: () => ipcRenderer.invoke('get-balance'),
     resizeForWebview: (open: boolean) => ipcRenderer.invoke('resize-for-webview', open),
     printChat: (html: string) => ipcRenderer.invoke('print-chat', { html }),
 

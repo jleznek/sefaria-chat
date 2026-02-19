@@ -90,6 +90,14 @@ export class ChatEngine {
         return { used, limit: rpm, resetsInSeconds };
     }
 
+    /** Fetch the account balance from the current provider, if supported. */
+    async getBalance(): Promise<{ balance: number; currency: string } | null> {
+        if (this.provider.getBalance) {
+            return this.provider.getBalance();
+        }
+        return null;
+    }
+
     async sendMessage(
         userMessage: string,
         responseLength: string | null,

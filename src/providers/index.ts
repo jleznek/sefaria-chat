@@ -1,4 +1,4 @@
-export type { ChatProvider, ProviderInfo, ProviderModel, ToolDeclaration, StreamResult, FunctionCall, Message, MessagePart } from './types';
+export type { ChatProvider, ProviderInfo, ProviderModel, ToolDeclaration, StreamResult, FunctionCall, Message, MessagePart, BalanceInfo } from './types';
 export { GEMINI_INFO, GeminiProvider } from './gemini';
 export { OPENAI_INFO, OpenAIProvider } from './openai';
 export { ANTHROPIC_INFO, AnthropicProvider } from './anthropic';

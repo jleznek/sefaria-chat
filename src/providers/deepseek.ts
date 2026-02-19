@@ -1,4 +1,4 @@
-import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult } from './types';
+import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult, BalanceInfo } from './types';
 
 let _openaiModule: any = null;
 
@@ -160,5 +160,22 @@ export class DeepSeekProvider implements ChatProvider {
             messages: [{ role: 'user', content: prompt }],
         });
         return response.choices?.[0]?.message?.content || '';
+    }
+
+    async getBalance(): Promise<BalanceInfo | null> {
+        try {
+            const res = await fetch('https://api.deepseek.com/user/balance', {
+                headers: { 'Authorization': `Bearer ${this.apiKey}` },
+            });
+            if (!res.ok) return null;
+            const data: any = await res.json();
+            const info = data?.balance_infos?.[0];
+            if (!info) return null;
+            const total = parseFloat(info.total_balance);
+            if (isNaN(total)) return null;
+            return { balance: total, currency: info.currency || 'CNY' };
+        } catch {
+            return null;
+        }
     }
 }

@@ -57,6 +57,13 @@ export interface Message {
     parts: MessagePart[];
 }
 
+export interface BalanceInfo {
+    /** Balance amount in USD (or equivalent). */
+    balance: number;
+    /** ISO currency code (e.g. 'USD', 'CNY'). */
+    currency: string;
+}
+
 export interface ChatProvider {
     readonly info: ProviderInfo;
 
@@ -76,4 +83,10 @@ export interface ChatProvider {
      * Generate a single non-streaming response (used for follow-up suggestions).
      */
     generateOnce(prompt: string): Promise<string>;
+
+    /**
+     * Fetch the account balance/credits, if supported by this provider.
+     * Returns null if balance checking is not supported.
+     */
+    getBalance?(): Promise<BalanceInfo | null>;
 }

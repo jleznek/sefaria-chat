@@ -179,6 +179,19 @@ function linkifyCitations(md) {
         'Pirkei Avot', 'Avot',
     ].join('|');
 
+    // Major works that should be linked even without a chapter:verse reference
+    const standaloneWorks = [
+        'Guide for the Perplexed', 'Moreh Nevukhim',
+        'Mishneh Torah', 'Shulchan Arukh',
+        'Sefer HaChinukh', 'Pirkei Avot',
+        'Pirkei DeRabbi Eliezer', 'Midrash Tanchuma',
+        'Beresheet Rabbah', 'Shemot Rabbah', 'Vayikra Rabbah',
+        'Bamidbar Rabbah', 'Devarim Rabbah',
+        'Tanya', 'Kuzari', 'Mesilat Yesharim',
+        'Duties of the Heart', 'Chovot HaLevavot',
+        'Emunot veDeot', 'Sefer Yetzirah',
+    ].join('|');
+
     let s = md;
 
     // 1. "Commentator on Book Chapter:Verse"
@@ -208,6 +221,13 @@ function linkifyCitations(md) {
         'g'
     );
     s = pass(s, otherRe);
+
+    // 5. Standalone major works (no chapter:verse required)
+    const standaloneRe = new RegExp(
+        `(${standaloneWorks})(?!\\s+\\d)`,
+        'g'
+    );
+    s = pass(s, standaloneRe);
 
     return s;
 }
@@ -641,6 +661,9 @@ api.onChatStreamEnd((data) => {
     isStreaming = false;
     sendBtn.disabled = !messageInput.value.trim();
 
+    // Refresh balance after each response (credits may have been spent)
+    refreshBalance();
+
     // Show follow-up suggestions if they arrived with the stream end
     const followUps = data && data.followUps;
     if (followUps && followUps.length > 0) {
@@ -676,6 +699,9 @@ api.onMcpStatus((data) => {
 const rateLimitText = /** @type {HTMLSpanElement} */ (document.getElementById('rate-limit-text'));
 const rateLimitFill = /** @type {HTMLDivElement} */ (document.getElementById('rate-limit-fill'));
 
+/** @type {string|null} Cached balance text for the current provider */
+let cachedBalanceText = null;
+
 function updateRateLimitBar(stats) {
     const { used, limit, resetsInSeconds } = stats;
     const pct = Math.min(100, Math.round((used / limit) * 100));
@@ -689,7 +715,9 @@ function updateRateLimitBar(stats) {
     if (used > 0 && resetsInSeconds > 0) {
         resetText = ` \u00b7 resets in ${resetsInSeconds}s`;
     }
-    rateLimitText.textContent = `${modelLabel} \u00b7 ${used} / ${limit} RPM${resetText}`;
+    const balancePart = cachedBalanceText ? ` \u00b7 ${cachedBalanceText}` : '';
+    rateLimitText.textContent = `${modelLabel} \u00b7 ${used} / ${limit} req/min${resetText}${balancePart}`;
+    rateLimitText.title = `API rate limit: ${used} of ${limit} requests used this minute.${cachedBalanceText ? ` Account balance: ${cachedBalanceText}.` : ''}`;
 
     rateLimitFill.style.width = pct + '%';
     rateLimitFill.classList.remove('warning', 'critical');
@@ -699,6 +727,25 @@ function updateRateLimitBar(stats) {
         rateLimitFill.classList.add('warning');
     }
 }
+
+/** Fetch account balance from the provider (if supported) and update the bar. */
+async function refreshBalance() {
+    try {
+        const result = await api.getBalance();
+        if (result) {
+            const symbol = result.currency === 'USD' ? '$' : result.currency === 'CNY' ? '\u00a5' : result.currency + ' ';
+            cachedBalanceText = `${symbol}${result.balance.toFixed(2)} balance`;
+        } else {
+            cachedBalanceText = null;
+        }
+    } catch {
+        cachedBalanceText = null;
+    }
+}
+
+// Fetch balance on startup and periodically (every 60s)
+refreshBalance();
+setInterval(refreshBalance, 60_000);
 
 api.onUsageUpdate((data) => {
     updateRateLimitBar(data);
@@ -998,7 +1045,7 @@ async function refreshModelPicker() {
                 const opt = document.createElement('option');
                 opt.value = `${p.id}::${m.id}`;
                 const rpm = m.rpm ?? p.rateLimit?.rpm;
-                opt.textContent = rpm ? `${m.name}  (${rpm} RPM)` : m.name;
+                opt.textContent = rpm ? `${m.name}  (${rpm} req/min)` : m.name;
                 if (p.id === activeProviderId && m.id === activeModelId) {
                     opt.selected = true;
                 }
@@ -1028,7 +1075,8 @@ modelPicker.addEventListener('change', async () => {
     activeProviderId = providerId;
     activeModelId = modelId;
 
-    // Refresh rate limit bar with new provider stats
+    // Refresh rate limit bar and balance with new provider stats
+    refreshBalance();
     try {
         const stats = await api.getUsageStats();
         updateRateLimitBar(stats);

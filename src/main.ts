@@ -596,8 +596,8 @@ function setupIpcHandlers(): void {
             };
         }
 
-        // Billing / insufficient credits (Anthropic returns 400 for this)
-        if (raw.includes('credit balance') || raw.includes('billing') || raw.includes('purchase credits') || raw.includes('insufficient_quota') || raw.includes('billing_hard_limit')) {
+        // Billing / insufficient credits (Anthropic returns 400, DeepSeek returns 402)
+        if (status === 402 || raw.includes('Insufficient Balance') || raw.includes('credit balance') || raw.includes('billing') || raw.includes('purchase credits') || raw.includes('insufficient_quota') || raw.includes('billing_hard_limit')) {
             return {
                 error: 'Your account doesn\u2019t have enough credit for this provider. Please add credits or upgrade your plan on the provider\u2019s billing page, or switch to a different provider.',
                 retryable: false,
@@ -731,6 +731,13 @@ function setupIpcHandlers(): void {
         const providerId = settings.provider || 'gemini';
         const providerInfo = AVAILABLE_PROVIDERS.find(p => p.id === providerId);
         return { used: 0, limit: providerInfo?.rateLimit.rpm || 20, resetsInSeconds: 0 };
+    });
+
+    ipcMain.handle('get-balance', async () => {
+        if (chatEngine) {
+            return chatEngine.getBalance();
+        }
+        return null;
     });
 
     // ── Chat history handlers ────────────────────────────────────────

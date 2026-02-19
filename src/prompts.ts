@@ -39,6 +39,15 @@ Formatting:
     - Talmud Sanhedrin 70a → [Sanhedrin 70a](https://www.sefaria.org/Sanhedrin.70a)
     - Beresheet Rabbah 36:4 → [Beresheet Rabbah 36:4](https://www.sefaria.org/Beresheet_Rabbah.36.4)
   Always use markdown link syntax so the user can click through to read the full passage on Sefaria.
+- When mentioning major Jewish works by name — even without a specific chapter/verse — ALWAYS hyperlink to their Sefaria table of contents page. Use spaces replaced by underscores in the URL. Examples:
+    - Mishneh Torah → [Mishneh Torah](https://www.sefaria.org/Mishneh_Torah)
+    - Guide for the Perplexed → [Guide for the Perplexed](https://www.sefaria.org/Guide_for_the_Perplexed)
+    - Commentary on the Mishnah → [Commentary on the Mishnah](https://www.sefaria.org/Commentary_on_the_Mishnah)
+    - Shulchan Arukh → [Shulchan Arukh](https://www.sefaria.org/Shulchan_Arukh)
+    - Zohar → [Zohar](https://www.sefaria.org/Zohar)
+    - Sefer HaChinukh → [Sefer HaChinukh](https://www.sefaria.org/Sefer_HaChinukh)
+    - Pirkei Avot → [Pirkei Avot](https://www.sefaria.org/Pirkei_Avot)
+  If you are unsure whether a work exists on Sefaria or what its exact Sefaria name is, use the clarify_name_argument or get_text_catalogue_info tool to verify before linking. Do not guess URLs for works you are unsure about.
 
 Diagrams:
 - When asked to create a diagram, flowchart, timeline, or visual representation, use Mermaid syntax inside a fenced code block with the language tag \`mermaid\`.
