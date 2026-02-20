@@ -332,6 +332,20 @@ function createWindow(): void {
         }
     });
 
+    // Right-click context menu for text inputs (paste, copy, cut, etc.)
+    mainWindow.webContents.on('context-menu', (_event, params) => {
+        const menu = Menu.buildFromTemplate([
+            { role: 'undo', enabled: params.editFlags.canUndo },
+            { role: 'redo', enabled: params.editFlags.canRedo },
+            { type: 'separator' },
+            { role: 'cut', enabled: params.editFlags.canCut },
+            { role: 'copy', enabled: params.editFlags.canCopy },
+            { role: 'paste', enabled: params.editFlags.canPaste },
+            { role: 'selectAll', enabled: params.editFlags.canSelectAll },
+        ]);
+        menu.popup();
+    });
+
     // Persist window bounds on move/resize
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     const persistBounds = () => {

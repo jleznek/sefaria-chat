@@ -181,21 +181,9 @@
                 </div>
                 <div class="settings-content">
                     <div class="settings-section">
-                        <h3>Active Providers</h3>
-                        <p class="settings-section-hint">Click a configured provider to make it the default.</p>
+                        <h3>Providers</h3>
+                        <p class="settings-section-hint">Click a provider to make it active, or configure a new one.</p>
                         <div id="activated-providers" class="activated-providers"></div>
-                    </div>
-                    <div class="settings-section">
-                        <h3>Add a Provider</h3>
-                        <div class="settings-provider-row">
-                            <select id="settings-provider" class="provider-select"></select>
-                            <select id="settings-model" class="provider-select model-select"></select>
-                        </div>
-                        <div class="setup-input-group" style="margin-top: 12px;">
-                            <input type="password" id="settings-api-key" placeholder="Enter new key..." autocomplete="off">
-                            <button id="settings-save-btn">Save</button>
-                        </div>
-                        <p id="settings-key-hint" class="settings-key-hint"></p>
                     </div>
                     <div class="settings-section">
                         <h3>Connection</h3>
@@ -243,6 +231,7 @@
                             <div id="changelog-content" class="changelog-content"></div>
                         </details>
                         <p class="about-disclaimer">This app is not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a>.<br>It uses Sefaria's publicly available MCP servers.</p>
+                        <p class="about-disclaimer">This app contains AI-generated content. Report inappropriate content to <a href="mailto:jleznek@leznekconsulting.onmicrosoft.com">jleznek@leznekconsulting.onmicrosoft.com</a>.</p>
                         <p class="about-copyright">&copy; 2026 Jason Leznek &middot; <a href="https://github.com/jleznek/sefaria-chat/blob/main/LICENSE" target="_blank">MIT License</a></p>
                     </div>
                 </div>
@@ -299,7 +288,7 @@
                 </div>
             </div>
         </div>
-        <div id="disclaimer-bar">Not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a> &bull; Uses Sefaria's <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP</a> &bull; &copy; 2026 Jason Leznek</div>
+        <div id="disclaimer-bar">Not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a> &bull; Uses Sefaria's <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP</a> &bull; &copy; 2026 Jason Leznek<br>This app contains AI-generated content. Report inappropriate content to <a href="mailto:jleznek@leznekconsulting.onmicrosoft.com">jleznek@leznekconsulting.onmicrosoft.com</a></div>
         <div id="donate-bar"><a href="https://www.sefaria.org/ways-to-give" target="_blank">Support Sefaria &mdash; Donate</a></div>
         <div id="update-bar" class="hidden">
             <span id="update-text">An update is available</span>

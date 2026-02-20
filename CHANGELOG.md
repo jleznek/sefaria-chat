@@ -2,6 +2,11 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [0.9.3]
+
+- **Streamlined provider settings** — Merged "Active Providers" and "Add a Provider" into a single unified section with inline configuration
+- **Right-click context menu** — Paste, copy, cut, undo, redo, and select all now available via right-click in all text fields
+
 ## [0.9.2]
 
 - **DeepSeek balance display** — Account balance (¥) now appears in the rate limit bar for DeepSeek, refreshing after each response and periodically

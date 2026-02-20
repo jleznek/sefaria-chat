@@ -1216,6 +1216,98 @@ a:hover {
     color: #c62828;
 }
 
+.provider-configure-btn {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+
+.provider-configure-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.provider-status-item.configuring {
+    border-color: var(--accent);
+    background: rgba(204,180,121,0.05);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+}
+
+.provider-inline-form {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.provider-inline-form .inline-model-select {
+    width: 100%;
+}
+
+.provider-inline-form .setup-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.provider-inline-form .inline-api-key {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: var(--font-body);
+    background: var(--bg-chat);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.provider-inline-form .inline-api-key:focus {
+    border-color: var(--accent);
+}
+
+.provider-inline-form .inline-save-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    background: var(--bg-user);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.provider-inline-form .inline-save-btn:hover {
+    opacity: 0.9;
+}
+
+.provider-inline-form .settings-key-hint {
+    font-size: 12px;
+    color: var(--text-light);
+    margin: 0;
+}
+
+.provider-inline-form .settings-key-hint a {
+    color: var(--accent);
+}
+
 /* ── Chat messages ─────────────────────────────────────────────────── */
 #chat-container {
     flex: 1;

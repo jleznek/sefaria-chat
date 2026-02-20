@@ -16,11 +16,6 @@ const setupOverlay   = /** @type {HTMLDivElement}       */ (document.getElementB
 const setupApiKey    = /** @type {HTMLInputElement}      */ (document.getElementById('setup-api-key'));
 
 const settingsPanel  = /** @type {HTMLDivElement}       */ (document.getElementById('settings-panel'));
-const settingsProvider = /** @type {HTMLSelectElement}   */ (document.getElementById('settings-provider'));
-const settingsModel  = /** @type {HTMLSelectElement}     */ (document.getElementById('settings-model'));
-const settingsApiKey = /** @type {HTMLInputElement}      */ (document.getElementById('settings-api-key'));
-const settingsSave   = /** @type {HTMLButtonElement}     */ (document.getElementById('settings-save-btn'));
-const settingsKeyHint = /** @type {HTMLParagraphElement} */ (document.getElementById('settings-key-hint'));
 const settingsBtn    = /** @type {HTMLButtonElement}     */ (document.getElementById('settings-btn'));
 const reconnectBtn   = /** @type {HTMLButtonElement}     */ (document.getElementById('reconnect-btn'));
 const mcpBadge       = /** @type {HTMLSpanElement}       */ (document.getElementById('mcp-badge'));
@@ -983,33 +978,7 @@ setupApiKey.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && wizardFinishBtn) wizardFinishBtn.click();
 });
 
-// Settings save
-settingsSave.addEventListener('click', async () => {
-    const providerId = settingsProvider.value;
-    const modelId = settingsModel.value;
-    const key = settingsApiKey.value.trim();
-    await api.saveProviderConfig({ providerId, modelId, apiKey: key || undefined });
-    activeProviderId = providerId;
-    activeModelId = modelId;
-    settingsApiKey.value = '';
-    // Don't close settings — let user close manually
-    // Refresh the model picker (new keys may have been added)
-    await refreshModelPicker();
-    // Refresh activated providers list
-    await refreshActivatedProviders();
-    // Refresh rate limit bar with new provider limits
-    try {
-        const stats = await api.getUsageStats();
-        updateRateLimitBar(stats);
-    } catch { /* ignore */ }
-});
-
-// Populate model dropdown when provider changes in settings
-settingsProvider.addEventListener('change', () => {
-    const p = providers.find(pr => pr.id === settingsProvider.value);
-    populateModelDropdown(settingsModel, p);
-    updateSettingsKeyHint(p);
-});
+// Settings save is now handled inline per-provider in refreshActivatedProviders()
 
 /**
  * Populate the compact model picker in the footer with only providers that have API keys configured.
@@ -1096,18 +1065,7 @@ function populateModelDropdown(select, providerInfo) {
     }
 }
 
-/** @param {typeof providers[0]} [providerInfo] */
-function updateSettingsKeyHint(providerInfo) {
-    if (!providerInfo) { settingsKeyHint.innerHTML = ''; return; }
-    const needsKey = providerInfo.requiresKey !== false;
-    settingsApiKey.placeholder = needsKey ? providerInfo.keyPlaceholder : 'No API key needed';
-    settingsApiKey.disabled = !needsKey;
-    if (needsKey) {
-        settingsKeyHint.innerHTML = `Get a key from <a href="${providerInfo.keyHelpUrl}" target="_blank">${providerInfo.keyHelpLabel}</a>. Leave blank to keep the existing key.`;
-    } else {
-        settingsKeyHint.textContent = `${providerInfo.keyHelpLabel}. Runs locally, no API key required.`;
-    }
-}
+
 
 // Suggested prompt cards & clear
 function wirePromptCards() {
@@ -1462,7 +1420,17 @@ async function refreshActivatedProviders() {
     try {
         const configured = await api.getConfiguredProviders();
         container.innerHTML = '';
-        for (const p of configured) {
+
+        // Sort: configured first (active on top), then unconfigured
+        const sorted = [...configured].sort((a, b) => {
+            if (a.id === activeProviderId) return -1;
+            if (b.id === activeProviderId) return 1;
+            if (a.hasKey && !b.hasKey) return -1;
+            if (!a.hasKey && b.hasKey) return 1;
+            return 0;
+        });
+
+        for (const p of sorted) {
             const isActive = p.id === activeProviderId;
             const hasKey = p.hasKey;
             const item = document.createElement('div');
@@ -1474,7 +1442,7 @@ async function refreshActivatedProviders() {
             const badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
             const detail = hasKey
                 ? (p.requiresKey === false ? 'Local \u2014 no key needed' : 'API key saved')
-                : 'Add an API key below to activate';
+                : (p.requiresKey === false ? 'Local \u2014 no key needed' : 'Click Configure to add an API key');
 
             item.innerHTML = `
                 <div class="provider-status-icon ${iconClass}">${iconSymbol}</div>
@@ -1483,7 +1451,8 @@ async function refreshActivatedProviders() {
                     <div class="provider-status-detail">${escapeHtml(detail)}</div>
                 </div>
                 <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
-                ${hasKey && p.requiresKey !== false ? '<button class="provider-remove-btn" title="Remove provider">&times;</button>' : ''}`;
+                ${hasKey && p.requiresKey !== false ? '<button class="provider-remove-btn" title="Remove API key">&times;</button>' : ''}
+                ${!hasKey && p.requiresKey !== false ? '<button class="provider-configure-btn">Configure</button>' : ''}`;
 
             // Click a configured provider to make it the default
             if (hasKey && !isActive) {
@@ -1523,6 +1492,78 @@ async function refreshActivatedProviders() {
                 });
             }
 
+            // Configure button — expand inline form
+            const configureBtn = item.querySelector('.provider-configure-btn');
+            if (configureBtn) {
+                configureBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Collapse any other open inline forms
+                    container.querySelectorAll('.provider-inline-form').forEach(f => f.remove());
+                    container.querySelectorAll('.provider-status-item').forEach(i => i.classList.remove('configuring'));
+
+                    item.classList.add('configuring');
+
+                    const form = document.createElement('div');
+                    form.className = 'provider-inline-form';
+
+                    const needsKey = p.requiresKey !== false;
+                    const keyHint = needsKey
+                        ? `Get a key from <a href="${p.keyHelpUrl}" target="_blank">${escapeHtml(p.keyHelpLabel)}</a>`
+                        : `${escapeHtml(p.keyHelpLabel)}. Runs locally, no API key required.`;
+
+                    // Build model options
+                    let modelOptions = '';
+                    if (p.models) {
+                        for (const m of p.models) {
+                            const selected = m.id === p.defaultModel ? ' selected' : '';
+                            modelOptions += `<option value="${escapeHtml(m.id)}"${selected}>${escapeHtml(m.name)}</option>`;
+                        }
+                    }
+
+                    form.innerHTML = `
+                        <select class="provider-select model-select inline-model-select">${modelOptions}</select>
+                        ${needsKey ? `<div class="setup-input-group">
+                            <input type="password" class="inline-api-key" placeholder="${escapeHtml(p.keyPlaceholder || 'Enter API key...')}" autocomplete="off">
+                            <button class="inline-save-btn">Save</button>
+                        </div>` : `<div class="setup-input-group">
+                            <button class="inline-save-btn">Activate</button>
+                        </div>`}
+                        <p class="settings-key-hint">${keyHint}</p>`;
+
+                    item.after(form);
+
+                    // Save handler
+                    const saveBtn = form.querySelector('.inline-save-btn');
+                    const keyInput = form.querySelector('.inline-api-key');
+                    const modelSelect = /** @type {HTMLSelectElement|null} */ (form.querySelector('.inline-model-select'));
+
+                    if (saveBtn) {
+                        saveBtn.addEventListener('click', async () => {
+                            const modelId = modelSelect ? modelSelect.value : (p.defaultModel || '');
+                            const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
+                            if (needsKey && !key) return;
+                            await api.saveProviderConfig({ providerId: p.id, modelId, apiKey: key || undefined });
+                            activeProviderId = p.id;
+                            activeModelId = modelId;
+                            await refreshModelPicker();
+                            await refreshActivatedProviders();
+                            try {
+                                const stats = await api.getUsageStats();
+                                updateRateLimitBar(stats);
+                            } catch { /* ignore */ }
+                        });
+                    }
+
+                    // Allow Enter to submit
+                    if (keyInput) {
+                        keyInput.addEventListener('keydown', (ke) => {
+                            if (ke.key === 'Enter' && saveBtn) saveBtn.click();
+                        });
+                        keyInput.focus();
+                    }
+                });
+            }
+
             container.appendChild(item);
         }
     } catch { /* ignore */ }
@@ -1540,32 +1581,16 @@ async function refreshActivatedProviders() {
     // Populate wizard provider cards
     populateWizardProviders();
 
-    // Populate settings provider dropdown
-    settingsProvider.innerHTML = '';
-    for (const p of providers) {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name;
-        settingsProvider.appendChild(opt);
-    }
-
     // Load current config
     try {
         const config = await api.getProviderConfig();
         activeProviderId = config.providerId || 'gemini';
         activeModelId = config.modelId || '';
 
-        // Pre-select current provider in settings dropdown
-        settingsProvider.value = activeProviderId;
-
         // Pre-select in wizard
         wizardProviderId = activeProviderId;
 
         const currentProvider = providers.find(p => p.id === activeProviderId);
-
-        // Populate settings model dropdown
-        populateModelDropdown(settingsModel, currentProvider);
-        updateSettingsKeyHint(currentProvider);
 
         if (!config.hasKey) {
             // For keyless providers like Ollama, check if they're available
