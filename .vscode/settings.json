@@ -17,6 +17,10 @@
         "git commit": true,
         "git tag": true,
         "git push": true,
-        "npx tsc": true
+        "npx tsc": true,
+        "/^cd \"c:\\\\Users\\\\jleznek\\\\OneDrive - Microsoft\\\\Documents\\\\Visual Studio Code\\\\Sefaria\" ; Test-NetConnection uploads\\.github\\.com -Port 443 \\| Select-Object ComputerName, RemoteAddress, TcpTestSucceeded$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

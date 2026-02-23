@@ -626,6 +626,16 @@ function setupIpcHandlers(): void {
             };
         }
 
+        // Ollama model not found (404)
+        if (status === 404 && (raw.includes('localhost') || raw.includes('127.0.0.1') || raw.includes('11434') || raw.includes('ollama'))) {
+            const modelMatch = raw.match(/model\s+['"]?([\w.:-]+)['"]?/i);
+            const modelName = modelMatch?.[1] || 'the selected model';
+            return {
+                error: `Ollama model "${modelName}" was not found. Pull it first by running: ollama pull ${modelName}`,
+                retryable: false,
+            };
+        }
+
         // Network / connection errors
         if (raw.includes('ENOTFOUND') || raw.includes('ECONNREFUSED') || raw.includes('fetch failed') || raw.includes('network')) {
             // Special message for Ollama connection failures
@@ -915,19 +925,22 @@ function setupAutoUpdater(): void {
         }
     });
 
-    ipcMain.handle('get-app-version', () => {
-        return app.getVersion();
-    });
-
-    ipcMain.handle('get-changelog', () => {
-        try {
-            const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
-            return fs.readFileSync(changelogPath, 'utf-8');
-        } catch {
-            return '';
-        }
-    });
 }
+
+// ── Version, changelog & store detection (always registered) ─────────
+
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('get-changelog', () => {
+    try {
+        const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+        return fs.readFileSync(changelogPath, 'utf-8');
+    } catch {
+        return '';
+    }
+});
+
+ipcMain.handle('is-store-app', () => !!process.windowsStore);
 
 // ── App lifecycle ────────────────────────────────────────────────────
 

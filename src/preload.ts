@@ -76,6 +76,7 @@ export interface SefariaApi {
     checkForUpdates(): Promise<{ version: string | null }>;
     getAppVersion(): Promise<string>;
     getChangelog(): Promise<string>;
+    isStoreApp(): Promise<boolean>;
 }
 
 contextBridge.exposeInMainWorld('sefaria', {
@@ -151,4 +152,5 @@ contextBridge.exposeInMainWorld('sefaria', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getChangelog: () => ipcRenderer.invoke('get-changelog'),
+    isStoreApp: () => ipcRenderer.invoke('is-store-app'),
 } satisfies SefariaApi);

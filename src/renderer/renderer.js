@@ -1626,6 +1626,15 @@ async function refreshActivatedProviders() {
         document.title = `Sefaria Chat v${ver}`;
     } catch { /* ignore */ }
 
+    // Hide Updates section for Microsoft Store builds
+    try {
+        const storeApp = await api.isStoreApp();
+        if (storeApp) {
+            const updatesSection = document.getElementById('updates-section');
+            if (updatesSection) updatesSection.style.display = 'none';
+        }
+    } catch { /* ignore */ }
+
     // Load changelog into About section
     try {
         const md = await api.getChangelog();

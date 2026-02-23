@@ -2,6 +2,13 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [1.0.0]
+
+- **Microsoft Store release** — Sefaria Chat is now available in the Microsoft Store
+- **Store-aware updates** — Update check UI is automatically hidden for Store installs (updates come through the Store)
+- **Changelog fix** — Changelog and version info now display correctly in all distribution types
+- **Ollama 404 fix** — Missing Ollama models now show a helpful "pull" command instead of a generic error
+
 ## [0.9.3]
 
 - **Streamlined provider settings** — Merged "Active Providers" and "Add a Provider" into a single unified section with inline configuration
