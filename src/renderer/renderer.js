@@ -1001,6 +1001,10 @@ async function refreshModelPicker() {
                     // Also update the providers array for settings dropdowns
                     const provEntry = providers.find(p => p.id === 'ollama');
                     if (provEntry) { provEntry.models = detection.models; }
+                } else if (detection.available && detection.models.length === 0) {
+                    // Ollama is running but has no models pulled — hide from picker
+                    ollamaInfo.models = [];
+                    ollamaInfo.hasKey = false;
                 }
             } catch { /* Ollama not running, that's fine */ }
         }
@@ -1419,6 +1423,31 @@ async function refreshActivatedProviders() {
     if (!container) return;
     try {
         const configured = await api.getConfiguredProviders();
+
+        // For Ollama, detect installed models and update list & status
+        const ollamaEntry = configured.find(p => p.id === 'ollama');
+        if (ollamaEntry) {
+            try {
+                const detection = await api.detectOllama();
+                if (detection.available && detection.models.length > 0) {
+                    ollamaEntry.models = detection.models;
+                    if (!ollamaEntry.models.find(m => m.id === ollamaEntry.defaultModel)) {
+                        ollamaEntry.defaultModel = ollamaEntry.models[0].id;
+                    }
+                    const provEntry = providers.find(p => p.id === 'ollama');
+                    if (provEntry) { provEntry.models = detection.models; }
+                    ollamaEntry._ollamaStatus = 'ready';
+                } else if (detection.available) {
+                    ollamaEntry.models = [];
+                    ollamaEntry._ollamaStatus = 'no-models';
+                } else {
+                    ollamaEntry._ollamaStatus = 'not-running';
+                }
+            } catch {
+                ollamaEntry._ollamaStatus = 'not-running';
+            }
+        }
+
         container.innerHTML = '';
 
         // Sort: configured first (active on top), then unconfigured
@@ -1432,17 +1461,36 @@ async function refreshActivatedProviders() {
 
         for (const p of sorted) {
             const isActive = p.id === activeProviderId;
-            const hasKey = p.hasKey;
+            let hasKey = p.hasKey;
+
+            // Override Ollama status based on actual detection
+            let ollamaNoModels = false;
+            if (p.id === 'ollama') {
+                if (p._ollamaStatus === 'no-models') {
+                    ollamaNoModels = true;
+                    hasKey = false; // treat as not ready
+                } else if (p._ollamaStatus === 'not-running') {
+                    hasKey = false;
+                }
+            }
+
             const item = document.createElement('div');
             item.className = 'provider-status-item' + (isActive ? ' active' : '') + (hasKey ? ' clickable' : '');
 
             const iconClass = hasKey ? 'configured' : 'not-configured';
             const iconSymbol = hasKey ? '\u2713' : '\u2014';
             const badgeClass = hasKey ? 'configured' : 'not-configured';
-            const badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
-            const detail = hasKey
+            let badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
+            let detail = hasKey
                 ? (p.requiresKey === false ? 'Local \u2014 no key needed' : 'API key saved')
                 : (p.requiresKey === false ? 'Local \u2014 no key needed' : 'Click Configure to add an API key');
+            if (p.id === 'ollama' && ollamaNoModels) {
+                badgeText = 'No models';
+                detail = 'Ollama is running but no models are pulled. Run "ollama pull llama3.2" in a terminal.';
+            } else if (p.id === 'ollama' && p._ollamaStatus === 'not-running') {
+                badgeText = 'Not running';
+                detail = 'Ollama is not running. Start it and pull a model to use local AI.';
+            }
 
             item.innerHTML = `
                 <div class="provider-status-icon ${iconClass}">${iconSymbol}</div>
@@ -1451,6 +1499,7 @@ async function refreshActivatedProviders() {
                     <div class="provider-status-detail">${escapeHtml(detail)}</div>
                 </div>
                 <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
+                ${hasKey && p.requiresKey !== false ? '<button class="provider-edit-key-btn" title="Change API key">&#9998;</button>' : ''}
                 ${hasKey && p.requiresKey !== false ? '<button class="provider-remove-btn" title="Remove API key">&times;</button>' : ''}
                 ${!hasKey && p.requiresKey !== false ? '<button class="provider-configure-btn">Configure</button>' : ''}`;
 
@@ -1458,6 +1507,7 @@ async function refreshActivatedProviders() {
             if (hasKey && !isActive) {
                 item.addEventListener('click', async (e) => {
                     if (/** @type {HTMLElement} */ (e.target).closest('.provider-remove-btn')) return;
+                    if (/** @type {HTMLElement} */ (e.target).closest('.provider-edit-key-btn')) return;
                     const defaultModel = p.defaultModel || (p.models && p.models[0] ? p.models[0].id : '');
                     const result = await api.switchProvider(p.id, defaultModel);
                     if (!result.error) {
@@ -1489,6 +1539,74 @@ async function refreshActivatedProviders() {
                         const stats = await api.getUsageStats();
                         updateRateLimitBar(stats);
                     } catch { /* ignore */ }
+                });
+            }
+
+            // Edit key button — expand inline form for changing key
+            const editKeyBtn = item.querySelector('.provider-edit-key-btn');
+            if (editKeyBtn) {
+                editKeyBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Collapse any other open inline forms
+                    container.querySelectorAll('.provider-inline-form').forEach(f => f.remove());
+                    container.querySelectorAll('.provider-status-item').forEach(i => i.classList.remove('configuring'));
+
+                    item.classList.add('configuring');
+                    const form = document.createElement('div');
+                    form.className = 'provider-inline-form';
+
+                    const keyHint = `Get a key from <a href="${p.keyHelpUrl}" target="_blank">${escapeHtml(p.keyHelpLabel)}</a>`;
+
+                    form.innerHTML = `
+                        <div class="setup-input-group">
+                            <input type="password" class="inline-api-key" placeholder="${escapeHtml(p.keyPlaceholder || 'Enter new API key...')}" autocomplete="off">
+                            <button class="inline-save-btn">Save</button>
+                        </div>
+                        <p class="inline-validation-msg"></p>
+                        <p class="settings-key-hint">${keyHint}</p>`;
+
+                    item.after(form);
+
+                    const saveBtn = form.querySelector('.inline-save-btn');
+                    const keyInput = form.querySelector('.inline-api-key');
+                    const validationMsg = form.querySelector('.inline-validation-msg');
+
+                    if (saveBtn) {
+                        saveBtn.addEventListener('click', async () => {
+                            const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
+                            if (!key) return;
+
+                            // Validate key before saving
+                            saveBtn.textContent = 'Validating...';
+                            saveBtn.disabled = true;
+                            validationMsg.textContent = '';
+                            validationMsg.className = 'inline-validation-msg';
+
+                            const result = await api.validateApiKey(p.id, key);
+                            if (!result.valid) {
+                                validationMsg.textContent = result.error || 'Invalid key.';
+                                validationMsg.className = 'inline-validation-msg validation-error';
+                                saveBtn.textContent = 'Save';
+                                saveBtn.disabled = false;
+                                return;
+                            }
+                            if (result.warning) {
+                                validationMsg.textContent = result.warning;
+                                validationMsg.className = 'inline-validation-msg validation-warning';
+                            }
+
+                            await api.saveProviderConfig({ providerId: p.id, modelId: activeModelId || p.defaultModel || '', apiKey: key });
+                            await refreshModelPicker();
+                            await refreshActivatedProviders();
+                        });
+                    }
+
+                    if (keyInput) {
+                        keyInput.addEventListener('keydown', (ke) => {
+                            if (ke.key === 'Enter' && saveBtn) saveBtn.click();
+                        });
+                        keyInput.focus();
+                    }
                 });
             }
 
@@ -1528,6 +1646,7 @@ async function refreshActivatedProviders() {
                         </div>` : `<div class="setup-input-group">
                             <button class="inline-save-btn">Activate</button>
                         </div>`}
+                        <p class="inline-validation-msg"></p>
                         <p class="settings-key-hint">${keyHint}</p>`;
 
                     item.after(form);
@@ -1536,12 +1655,35 @@ async function refreshActivatedProviders() {
                     const saveBtn = form.querySelector('.inline-save-btn');
                     const keyInput = form.querySelector('.inline-api-key');
                     const modelSelect = /** @type {HTMLSelectElement|null} */ (form.querySelector('.inline-model-select'));
+                    const validationMsg = form.querySelector('.inline-validation-msg');
 
                     if (saveBtn) {
                         saveBtn.addEventListener('click', async () => {
                             const modelId = modelSelect ? modelSelect.value : (p.defaultModel || '');
                             const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
                             if (needsKey && !key) return;
+
+                            // Validate key before saving (only for providers that need keys)
+                            if (needsKey && key) {
+                                saveBtn.textContent = 'Validating...';
+                                saveBtn.disabled = true;
+                                validationMsg.textContent = '';
+                                validationMsg.className = 'inline-validation-msg';
+
+                                const result = await api.validateApiKey(p.id, key);
+                                if (!result.valid) {
+                                    validationMsg.textContent = result.error || 'Invalid key.';
+                                    validationMsg.className = 'inline-validation-msg validation-error';
+                                    saveBtn.textContent = 'Save';
+                                    saveBtn.disabled = false;
+                                    return;
+                                }
+                                if (result.warning) {
+                                    validationMsg.textContent = result.warning;
+                                    validationMsg.className = 'inline-validation-msg validation-warning';
+                                }
+                            }
+
                             await api.saveProviderConfig({ providerId: p.id, modelId, apiKey: key || undefined });
                             activeProviderId = p.id;
                             activeModelId = modelId;

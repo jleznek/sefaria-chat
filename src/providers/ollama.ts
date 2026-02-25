@@ -156,14 +156,25 @@ export class OllamaProvider implements ChatProvider {
 
         const abortController = new AbortController();
 
-        const stream = await client.chat.completions.create(
-            {
-                model: this.model,
-                messages,
-                stream: true,
-            },
-            { signal: abortController.signal },
-        );
+        let stream;
+        try {
+            stream = await client.chat.completions.create(
+                {
+                    model: this.model,
+                    messages,
+                    stream: true,
+                },
+                { signal: abortController.signal },
+            );
+        } catch (err: unknown) {
+            const status = (err as { status?: number }).status;
+            if (status === 404) {
+                throw new Error(
+                    `Ollama model "${this.model}" was not found. Make sure the model is installed by running "ollama pull ${this.model}". You can list installed models with "ollama list".`,
+                );
+            }
+            throw err;
+        }
 
         let text = '';
         let receivedFirstToken = false;
@@ -219,13 +230,24 @@ export class OllamaProvider implements ChatProvider {
         const abortController = new AbortController();
         const timeout = setTimeout(() => abortController.abort(), FIRST_TOKEN_TIMEOUT_MS);
         try {
-            const response = await client.chat.completions.create(
-                {
-                    model: this.model,
-                    messages: [{ role: 'user', content: prompt }],
-                },
-                { signal: abortController.signal },
-            );
+            let response;
+            try {
+                response = await client.chat.completions.create(
+                    {
+                        model: this.model,
+                        messages: [{ role: 'user', content: prompt }],
+                    },
+                    { signal: abortController.signal },
+                );
+            } catch (err: unknown) {
+                const status = (err as { status?: number }).status;
+                if (status === 404) {
+                    throw new Error(
+                        `Ollama model "${this.model}" was not found. Make sure the model is installed by running "ollama pull ${this.model}".`,
+                    );
+                }
+                throw err;
+            }
             return response.choices?.[0]?.message?.content || '';
         } catch (err: unknown) {
             if (abortController.signal.aborted) {

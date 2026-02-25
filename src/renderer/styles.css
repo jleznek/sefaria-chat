@@ -1199,6 +1199,23 @@ a:hover {
     color: var(--text-light);
 }
 
+.provider-edit-key-btn {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.provider-edit-key-btn:hover {
+    opacity: 1;
+    color: var(--accent);
+}
+
 .provider-remove-btn {
     background: none;
     border: none;
@@ -1214,6 +1231,24 @@ a:hover {
 .provider-remove-btn:hover {
     opacity: 1;
     color: #c62828;
+}
+
+.inline-validation-msg {
+    font-size: 12px;
+    margin: 0;
+    min-height: 0;
+}
+
+.inline-validation-msg:empty {
+    display: none;
+}
+
+.inline-validation-msg.validation-error {
+    color: #c62828;
+}
+
+.inline-validation-msg.validation-warning {
+    color: #e8a317;
 }
 
 .provider-configure-btn {

@@ -464,6 +464,65 @@ function setupIpcHandlers(): void {
         }));
     });
 
+    /** Validate an API key by making a lightweight request to the provider. */
+    ipcMain.handle('validate-api-key', async (_event, { providerId, apiKey }: { providerId: string; apiKey: string }) => {
+        try {
+            const validationEndpoints: Record<string, { url: string; init: RequestInit }> = {
+                gemini: {
+                    url: `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=1`,
+                    init: { method: 'GET', signal: AbortSignal.timeout(10_000) },
+                },
+                openai: {
+                    url: 'https://api.openai.com/v1/models?limit=1',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
+                anthropic: {
+                    url: 'https://api.anthropic.com/v1/models?limit=1',
+                    init: { method: 'GET', headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(10_000) },
+                },
+                grok: {
+                    url: 'https://api.x.ai/v1/models',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
+                mistral: {
+                    url: 'https://api.mistral.ai/v1/models',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
+                deepseek: {
+                    url: 'https://api.deepseek.com/models',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
+            };
+            const endpoint = validationEndpoints[providerId];
+            if (!endpoint) {
+                return { valid: true }; // No validation available for this provider
+            }
+            const resp = await fetch(endpoint.url, endpoint.init);
+            if (resp.ok) {
+                return { valid: true };
+            }
+            const body = await resp.text().catch(() => '');
+            const bodyLower = body.toLowerCase();
+            // Check for invalid key indicators across different status codes
+            // (Gemini/xAI return 400, OpenAI/Anthropic/Mistral return 401, some return 403)
+            const isAuthError = resp.status === 401 || resp.status === 403
+                || (resp.status === 400 && (bodyLower.includes('invalid') || bodyLower.includes('api key') || bodyLower.includes('incorrect') || bodyLower.includes('authentication')));
+            if (isAuthError) {
+                // Distinguish billing issues from truly invalid keys
+                if (bodyLower.includes('credits') || bodyLower.includes('billing') || bodyLower.includes('purchase') || bodyLower.includes('balance') || bodyLower.includes('licenses')) {
+                    return { valid: true, warning: 'Key accepted, but your account may need credits. Check your provider\'s billing page.' };
+                }
+                return { valid: false, error: 'Invalid API key. Please double-check and try again.' };
+            }
+            if (resp.status === 429) {
+                return { valid: true }; // Rate limited means the key is valid
+            }
+            return { valid: true, warning: `Unexpected status ${resp.status}. The key may still work.` };
+        } catch {
+            return { valid: true, warning: 'Could not reach the provider to validate. The key has been saved.' };
+        }
+    });
+
     /** Detect locally installed Ollama models. Returns { available, models } */
     ipcMain.handle('detect-ollama', async () => {
         const models = await detectOllamaModels();
@@ -474,13 +533,23 @@ function setupIpcHandlers(): void {
     });
 
     /** Quick-switch provider/model without clearing conversation history. */
-    ipcMain.handle('switch-provider', (_event, { providerId, modelId }: { providerId: string; modelId: string }) => {
+    ipcMain.handle('switch-provider', async (_event, { providerId, modelId }: { providerId: string; modelId: string }) => {
         const settings = loadSettings();
         const providerInfo = AVAILABLE_PROVIDERS.find(p => p.id === providerId);
         const keyRequired = providerInfo?.requiresKey !== false;
         const key = settings.apiKeys?.[providerId] || '';
         if (keyRequired && !key) {
             return { error: 'No API key configured for this provider. Add one in Settings.' };
+        }
+        // For Ollama, verify the model exists locally before switching
+        if (providerId === 'ollama') {
+            const detected = await detectOllamaModels();
+            if (detected !== null && detected.length === 0) {
+                return { error: 'Ollama is running but has no models installed. Pull a model first — for example, run "ollama pull llama3.2" in a terminal.' };
+            }
+            if (detected && detected.length > 0 && !detected.some(m => m.id === modelId)) {
+                return { error: `Model "${modelId}" is not installed in Ollama. Run "ollama pull ${modelId}" to download it, or choose an installed model.` };
+            }
         }
         settings.provider = providerId;
         settings.model = modelId;
@@ -610,8 +679,8 @@ function setupIpcHandlers(): void {
             };
         }
 
-        // Billing / insufficient credits (Anthropic returns 400, DeepSeek returns 402)
-        if (status === 402 || raw.includes('Insufficient Balance') || raw.includes('credit balance') || raw.includes('billing') || raw.includes('purchase credits') || raw.includes('insufficient_quota') || raw.includes('billing_hard_limit')) {
+        // Billing / insufficient credits (Anthropic returns 400, DeepSeek returns 402, xAI returns 403 with credits message)
+        if (status === 402 || raw.includes('Insufficient Balance') || raw.includes('credit balance') || raw.includes('billing') || raw.includes('purchase credits') || raw.includes('insufficient_quota') || raw.includes('billing_hard_limit') || raw.includes('credits or licenses')) {
             return {
                 error: 'Your account doesn\u2019t have enough credit for this provider. Please add credits or upgrade your plan on the provider\u2019s billing page, or switch to a different provider.',
                 retryable: false,
@@ -958,6 +1027,23 @@ app.whenReady().then(async () => {
         const providerMeta = AVAILABLE_PROVIDERS.find(p => p.id === providerId);
         const keyRequired = providerMeta?.requiresKey !== false;
         const apiKey = settings.apiKeys?.[providerId] || '';
+
+        // For Ollama, validate that the saved model actually exists locally.
+        // If not, auto-switch to the first available model.
+        if (providerId === 'ollama') {
+            const detected = await detectOllamaModels();
+            if (detected && detected.length > 0) {
+                const modelExists = detected.some(m => m.id === settings.model);
+                if (!modelExists) {
+                    settings.model = detected[0].id;
+                    saveSettings(settings);
+                    console.log(`[startup] Ollama model not found locally, switched to "${settings.model}"`);
+                }
+            } else {
+                console.log('[startup] Ollama has no models installed, skipping chat engine init');
+            }
+        }
+
         if (!keyRequired || apiKey) {
             const result = createProvider(providerId, apiKey, settings.model);
             if (result) {

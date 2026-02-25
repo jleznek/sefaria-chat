@@ -2,6 +2,15 @@
 
 All notable changes to Sefaria Chat will be documented in this file.
 
+## [1.1.0]
+
+- **Edit API keys** — Configured providers now show a pencil (✎) button to change API keys without removing and reconfiguring
+- **API key validation** — Keys are validated against the provider's API before saving; invalid keys are rejected with a clear error message
+- **Better Grok error handling** — xAI billing/credits errors (HTTP 403) now show the correct "add credits" message instead of "invalid key"
+- **Ollama model detection** — App validates Ollama models exist locally at startup and in the model picker; missing models no longer cause 404 errors
+- **Ollama status display** — Settings panel shows Ollama's actual status: "Ready", "No models" (with pull instructions), or "Not running"
+- **Improved 404 error messages** — Ollama model-not-found errors now tell you exactly which model is missing and how to pull it
+
 ## [1.0.0]
 
 - **Microsoft Store release** — Sefaria Chat is now available in the Microsoft Store
