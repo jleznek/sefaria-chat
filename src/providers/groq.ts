@@ -1,30 +1,34 @@
-import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult, BalanceInfo } from './types';
+import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult } from './types';
 
 let _openaiModule: any = null;
 
-export const DEEPSEEK_INFO: ProviderInfo = {
-    id: 'deepseek',
-    name: 'DeepSeek',
+export const GROQ_INFO: ProviderInfo = {
+    id: 'groq',
+    name: 'Groq',
     models: [
-        { id: 'deepseek-chat', name: 'DeepSeek-V3' },
-        { id: 'deepseek-reasoner', name: 'DeepSeek-R1' },
+        { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
+        { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
+        { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+        { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+        { id: 'llama3-70b-8192', name: 'Llama 3 70B' },
+        { id: 'llama3-8b-8192', name: 'Llama 3 8B' },
     ],
-    defaultModel: 'deepseek-chat',
-    rateLimit: { rpm: 60, windowMs: 60_000 },
-    keyPlaceholder: 'sk-...',
-    keyHelpUrl: 'https://platform.deepseek.com/api_keys',
-    keyHelpLabel: 'DeepSeek Platform',
+    defaultModel: 'llama-3.3-70b-versatile',
+    rateLimit: { rpm: 30, windowMs: 60_000 },
+    keyPlaceholder: 'gsk_...',
+    keyHelpUrl: 'https://console.groq.com/keys',
+    keyHelpLabel: 'Groq Console',
 };
 
-export class DeepSeekProvider implements ChatProvider {
-    readonly info = DEEPSEEK_INFO;
+export class GroqProvider implements ChatProvider {
+    readonly info = GROQ_INFO;
     private client: any = null;
     private apiKey: string;
     private model: string;
 
     constructor(apiKey: string, model?: string) {
         this.apiKey = apiKey;
-        this.model = model || DEEPSEEK_INFO.defaultModel;
+        this.model = model || GROQ_INFO.defaultModel;
     }
 
     private async getClient(): Promise<any> {
@@ -35,7 +39,7 @@ export class DeepSeekProvider implements ChatProvider {
             const OpenAI = _openaiModule.default || _openaiModule.OpenAI;
             this.client = new OpenAI({
                 apiKey: this.apiKey,
-                baseURL: 'https://api.deepseek.com',
+                baseURL: 'https://api.groq.com/openai/v1',
             });
         }
         return this.client;
@@ -161,22 +165,5 @@ export class DeepSeekProvider implements ChatProvider {
             messages: [{ role: 'user', content: prompt }],
         });
         return response.choices?.[0]?.message?.content || '';
-    }
-
-    async getBalance(): Promise<BalanceInfo | null> {
-        try {
-            const res = await fetch('https://api.deepseek.com/user/balance', {
-                headers: { 'Authorization': `Bearer ${this.apiKey}` },
-            });
-            if (!res.ok) return null;
-            const data: any = await res.json();
-            const info = data?.balance_infos?.[0];
-            if (!info) return null;
-            const total = parseFloat(info.total_balance);
-            if (isNaN(total)) return null;
-            return { balance: total, currency: info.currency || 'CNY' };
-        } catch {
-            return null;
-        }
     }
 }

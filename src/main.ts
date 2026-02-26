@@ -2,7 +2,6 @@ import { app, BrowserWindow, ipcMain, Menu, shell, screen, nativeImage } from 'e
 import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { autoUpdater } from 'electron-updater';
 import { McpClientManager } from './mcp-client';
 import { ChatEngine } from './chat-engine';
 import { createProvider, AVAILABLE_PROVIDERS, detectOllamaModels } from './providers';
@@ -12,7 +11,7 @@ import type { ChatProvider } from './providers';
 app.setAppUserModelId('org.sefaria.desktop');
 
 // Suppress EPIPE errors from broken stdout/stderr pipes (e.g. when
-// electron-updater writes to console after the parent process closes).
+// a child process writes to console after the parent process closes).
 process.stdout?.on?.('error', () => {});
 process.stderr?.on?.('error', () => {});
 
@@ -492,6 +491,14 @@ function setupIpcHandlers(): void {
                     url: 'https://api.deepseek.com/models',
                     init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
                 },
+                groq: {
+                    url: 'https://api.groq.com/openai/v1/models',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
+                openrouter: {
+                    url: 'https://openrouter.ai/api/v1/models?limit=1',
+                    init: { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+                },
             };
             const endpoint = validationEndpoints[providerId];
             if (!endpoint) {
@@ -705,6 +712,23 @@ function setupIpcHandlers(): void {
             };
         }
 
+        // Upstream server error (500) — e.g. Ollama cloud models proxying to an external API
+        if (status === 500 || raw.includes('Internal Server Error')) {
+            const isCloud = raw.includes(':cloud') || raw.includes('cloud');
+            if (isCloud || raw.includes('localhost') || raw.includes('127.0.0.1') || raw.includes('11434')) {
+                return {
+                    error: isCloud
+                        ? 'The cloud model returned a server error (500). This may be a temporary issue with the upstream provider. Try again in a moment, or switch to a local or different model.'
+                        : 'Ollama returned a server error (500). Try restarting Ollama, or switch to a different model.',
+                    retryable: true,
+                };
+            }
+            return {
+                error: 'The API returned a server error (500). This is usually a temporary issue on the provider\u2019s end. Try again in a moment.',
+                retryable: true,
+            };
+        }
+
         // Network / connection errors
         if (raw.includes('ENOTFOUND') || raw.includes('ECONNREFUSED') || raw.includes('fetch failed') || raw.includes('network')) {
             // Special message for Ollama connection failures
@@ -800,6 +824,14 @@ function setupIpcHandlers(): void {
 
                 return { success: true, chatId: currentChatId };
             } catch (err: unknown) {
+                // User cancelled — finalize gracefully
+                const isAbort = (err instanceof DOMException && err.name === 'AbortError')
+                    || (err instanceof Error && err.message === 'Response cancelled');
+                if (isAbort) {
+                    mainWindow?.webContents.send('chat-stream-end', { followUps: [], cancelled: true });
+                    saveCurrentChat(message);
+                    return { cancelled: true, chatId: currentChatId };
+                }
                 console.error('[send-message] error:', err);
                 const errorInfo = parseApiError(err);
                 // Don't send chat-stream-end here — the error return
@@ -808,6 +840,12 @@ function setupIpcHandlers(): void {
             }
         },
     );
+
+    ipcMain.handle('cancel-message', () => {
+        console.log('[cancel-message] aborting current request');
+        chatEngine?.abort();
+        return { success: true };
+    });
 
     ipcMain.handle('clear-chat', () => {
         chatEngine?.clearHistory();
@@ -906,95 +944,7 @@ function setupIpcHandlers(): void {
     });
 }
 
-// ── Auto-updater ─────────────────────────────────────────────────────
 
-function setupAutoUpdater(): void {
-    // Windows Store apps update through the Store itself
-    if (process.windowsStore) {
-        console.log('[updater] running as Store app, skipping auto-updater');
-        return;
-    }
-
-    autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
-
-    // Skip Windows Authenticode chain validation for self-signed certs.
-    // Integrity is still protected by SHA-512 hash verification in latest.yml.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null);
-
-    autoUpdater.on('checking-for-update', () => {
-        console.log('[updater] checking for update…');
-    });
-
-    autoUpdater.on('update-available', (info) => {
-        console.log('[updater] update available:', info.version);
-        mainWindow?.webContents.send('update-status', {
-            status: 'downloading',
-            version: info.version,
-        });
-    });
-
-    autoUpdater.on('update-not-available', () => {
-        console.log('[updater] app is up to date');
-    });
-
-    autoUpdater.on('download-progress', (progress) => {
-        mainWindow?.webContents.send('update-status', {
-            status: 'downloading',
-            percent: Math.round(progress.percent),
-        });
-    });
-
-    autoUpdater.on('update-downloaded', (info) => {
-        console.log('[updater] update downloaded:', info.version);
-        mainWindow?.webContents.send('update-status', {
-            status: 'ready',
-            version: info.version,
-        });
-    });
-
-    autoUpdater.on('error', (err) => {
-        console.error('[updater] error:', err.message);
-        mainWindow?.webContents.send('update-status', {
-            status: 'error',
-            error: err.message,
-        });
-    });
-
-    ipcMain.handle('install-update', () => {
-        // Force quit all windows and restart with the new version.
-        // autoInstallOnAppQuit must be false so quitAndInstall actually installs now.
-        autoUpdater.autoInstallOnAppQuit = false;
-        setImmediate(() => {
-            autoUpdater.quitAndInstall(false, true);
-        });
-    });
-
-    ipcMain.handle('check-for-updates', async () => {
-        if (!app.isPackaged) {
-            console.log('[updater] skipping update check in dev mode');
-            return { version: null };
-        }
-        try {
-            const result = await autoUpdater.checkForUpdates();
-            const latestVersion = result?.updateInfo?.version || null;
-            const currentVersion = app.getVersion();
-            // Only report an update if the server version is different from the running version.
-            if (latestVersion && latestVersion !== currentVersion) {
-                mainWindow?.webContents.send('update-status', {
-                    status: 'downloading',
-                    version: latestVersion,
-                });
-                return { version: latestVersion };
-            }
-            return { version: null };
-        } catch {
-            return { version: null };
-        }
-    });
-
-}
 
 // ── Version, changelog & store detection (always registered) ─────────
 
@@ -1009,14 +959,11 @@ ipcMain.handle('get-changelog', () => {
     }
 });
 
-ipcMain.handle('is-store-app', () => !!process.windowsStore);
-
 // ── App lifecycle ────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
     createWindow();
     setupIpcHandlers();
-    setupAutoUpdater();
     await initMcp();
 
     // Eagerly initialize chat engine with saved settings so the first message
@@ -1057,14 +1004,6 @@ app.whenReady().then(async () => {
         }
     }
 
-    // Only auto-check for updates in packaged (production) builds
-    if (app.isPackaged) {
-        setTimeout(() => {
-            autoUpdater.checkForUpdates().catch(() => { /* ignore */ });
-        }, 5000);
-    } else {
-        console.log('[updater] skipping auto-update check in dev mode');
-    }
 });
 
 app.on('window-all-closed', async () => {

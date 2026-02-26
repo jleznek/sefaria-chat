@@ -3,7 +3,6 @@ graph TB
         subgraph Main["Main Process (main.ts)"]
             Settings["Settings & Chat\nPersistence\n(JSON files)"]
             IPC["IPC Handlers"]
-            AutoUpdate["Auto-Updater\n(electron-updater)"]
             
             subgraph Engine["Chat Engine (chat-engine.ts)"]
                 RateLimit["Rate Limiter"]
@@ -40,7 +39,6 @@ graph TB
         OllamaLocal["Ollama (Local)"]
         SefariaTexts["Sefaria Texts MCP\nmcp.sefaria.org/sse"]
         SefariaDev["Sefaria Dev MCP\ndevelopers.sefaria.org/mcp"]
-        GitHub["GitHub Releases\n(Auto-Update)"]
     end
     
     UI <-->|"window.sefaria API"| Preload
@@ -55,7 +53,6 @@ graph TB
     Ollama <-->|"API calls"| OllamaLocal
     MCP <-->|"SSE/HTTP"| SefariaTexts
     MCP <-->|"SSE/HTTP"| SefariaDev
-    AutoUpdate <-->|"Check & Download"| GitHub
     ToolLoop --> MCP
     
     style Electron fill:#1a1a2e,stroke:#e0c97f,color:#fff

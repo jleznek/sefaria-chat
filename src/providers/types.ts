@@ -77,6 +77,7 @@ export interface ChatProvider {
         systemPrompt: string,
         tools: ToolDeclaration[],
         onTextChunk: (text: string) => void,
+        signal?: AbortSignal,
     ): Promise<StreamResult>;
 
     /**

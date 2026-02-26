@@ -18,9 +18,7 @@
     "start": "npm run build && electron .",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win nsis portable",
-    "dist:store": "npm run build && electron-builder --win appx --x64 --arm64",
+    "dist": "npm run build && electron-builder --win appx --x64 --arm64",
     "dist:mac": "echo macOS build disabled",
     "dist:linux": "echo Linux build disabled"
   },
@@ -28,7 +26,6 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/genai": "^1.40.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "electron-updater": "^6.7.3",
     "openai": "^4.97.0"
   },
   "devDependencies": {
@@ -45,13 +42,6 @@
     "appId": "org.sefaria.desktop",
     "productName": "Sefaria Chat",
     "icon": "assets/icon.png",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "jleznek",
-        "repo": "sefaria-chat"
-      }
-    ],
     "files": [
       "dist/**/*",
       "assets/**/*",
@@ -64,14 +54,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "portable",
+          "target": "appx",
           "arch": [
             "x64",
             "arm64"
@@ -86,12 +69,6 @@
         ],
         "certificateSha1": "2D04763C2A9653DE2D316790429DC8F4A18E0B74"
       }
-    },
-    "nsis": {
-      "artifactName": "Sefaria-Chat-Setup-${version}-${arch}.${ext}"
-    },
-    "portable": {
-      "artifactName": "Sefaria-Chat-Portable-${version}-${arch}.${ext}"
     },
     "appx": {
       "identityName": "JasonLeznek.SefariaChat",

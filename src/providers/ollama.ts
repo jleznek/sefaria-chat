@@ -145,6 +145,7 @@ export class OllamaProvider implements ChatProvider {
         systemPrompt: string,
         _tools: ToolDeclaration[],
         onTextChunk: (text: string) => void,
+        signal?: AbortSignal,
     ): Promise<StreamResult> {
         const client = await this.getClient();
         const messages = this.convertHistory(history, systemPrompt);
@@ -155,6 +156,11 @@ export class OllamaProvider implements ChatProvider {
         // answer from its training knowledge.
 
         const abortController = new AbortController();
+
+        // Chain external cancel signal to internal timeout controller
+        const onExternalAbort = () => abortController.abort();
+        if (signal?.aborted) { abortController.abort(); }
+        else { signal?.addEventListener('abort', onExternalAbort, { once: true }); }
 
         let stream;
         try {
@@ -219,6 +225,7 @@ export class OllamaProvider implements ChatProvider {
             throw err;
         } finally {
             if (idleTimer) { clearTimeout(idleTimer); }
+            signal?.removeEventListener('abort', onExternalAbort);
         }
 
         // Ollama models don't use tool calls — always return empty

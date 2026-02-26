@@ -14,11 +14,18 @@ export class ChatEngine {
 
     // Rate limit tracking – limits come from the active provider
     private requestTimestamps: number[] = [];
+    private activeAbort: AbortController | null = null;
 
     constructor(provider: ChatProvider, mcpManager: McpClientManager, modelId?: string) {
         this.provider = provider;
         this.mcpManager = mcpManager;
         this.modelId = modelId || provider.info.defaultModel;
+    }
+
+    /** Cancel the current in-flight request, if any. */
+    abort(): void {
+        this.activeAbort?.abort();
+        this.activeAbort = null;
     }
 
     /** Swap the active provider (e.g. when the user changes settings). */
@@ -131,70 +138,123 @@ export class ChatEngine {
         // Tool-calling loop: stream responses, handle tool calls, repeat
         const maxRounds = 10;
 
-        for (let round = 0; round < maxRounds; round++) {
-            // Wait for capacity before calling the API to avoid 429s
-            await this.waitForCapacity();
+        // Set up abort controller so the user can cancel mid-stream
+        this.activeAbort = new AbortController();
+        const { signal } = this.activeAbort;
 
-            const result = await this.provider.streamChat(
-                this.conversationHistory,
-                systemContent,
-                tools,
-                onTextChunk,
-            );
-            this.recordRequest();
+        // Track text across rounds so we can save partial responses on cancel
+        let accumulatedText = '';
+        const trackingChunk: TextChunkCallback = (chunk) => {
+            accumulatedText += chunk;
+            onTextChunk(chunk);
+        };
 
-            // If no function calls, save the final response and stop
-            if (result.functionCalls.length === 0) {
-                this.conversationHistory.push({
-                    role: 'model',
-                    parts: [{ text: result.text || '' }],
-                });
-                break;
-            }
+        try {
+            for (let round = 0; round < maxRounds; round++) {
+                if (signal.aborted) break;
 
-            // Add model response (with function calls) to history
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const modelParts: any[] = [];
-            if (result.text) {
-                modelParts.push({ text: result.text });
-            }
-            for (const fc of result.functionCalls) {
-                modelParts.push({
-                    functionCall: { name: fc.name, args: fc.args, id: fc.id },
-                });
-            }
-            this.conversationHistory.push({ role: 'model', parts: modelParts });
+                // Wait for capacity before calling the API to avoid 429s
+                await this.waitForCapacity();
+                if (signal.aborted) break;
 
-            // Execute each function call via MCP
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const responseParts: any[] = [];
-            for (const fc of result.functionCalls) {
-                onToolStatus(fc.name, 'calling');
-                try {
-                    const mcpResult = await this.mcpManager.callTool(fc.name, fc.args);
-                    const serialized = typeof mcpResult === 'string'
-                        ? { result: mcpResult }
-                        : (mcpResult as Record<string, unknown>);
-                    responseParts.push({
-                        functionResponse: { name: fc.name, response: serialized, callId: fc.id },
+                const result = await this.provider.streamChat(
+                    this.conversationHistory,
+                    systemContent,
+                    tools,
+                    trackingChunk,
+                    signal,
+                );
+                this.recordRequest();
+
+                // If no function calls, save the final response and stop
+                if (result.functionCalls.length === 0) {
+                    this.conversationHistory.push({
+                        role: 'model',
+                        parts: [{ text: result.text || '' }],
                     });
-                } catch (err) {
-                    responseParts.push({
-                        functionResponse: {
-                            name: fc.name,
-                            response: {
-                                error: `Error invoking tool ${fc.name}: ${err instanceof Error ? err.message : String(err)}`,
-                            },
-                            callId: fc.id,
-                        },
+                    break;
+                }
+
+                // Add model response (with function calls) to history
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const modelParts: any[] = [];
+                if (result.text) {
+                    modelParts.push({ text: result.text });
+                }
+                for (const fc of result.functionCalls) {
+                    modelParts.push({
+                        functionCall: { name: fc.name, args: fc.args, id: fc.id },
                     });
                 }
-                onToolStatus(fc.name, 'done');
-            }
+                this.conversationHistory.push({ role: 'model', parts: modelParts });
 
-            // Add function responses to history (role: 'user' per Gemini convention)
-            this.conversationHistory.push({ role: 'user', parts: responseParts });
+                // Execute each function call via MCP
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const responseParts: any[] = [];
+                for (const fc of result.functionCalls) {
+                    if (signal.aborted) break;
+                    onToolStatus(fc.name, 'calling');
+                    try {
+                        const mcpResult = await this.mcpManager.callTool(fc.name, fc.args);
+                        const serialized = typeof mcpResult === 'string'
+                            ? { result: mcpResult }
+                            : (mcpResult as Record<string, unknown>);
+                        responseParts.push({
+                            functionResponse: { name: fc.name, response: serialized, callId: fc.id },
+                        });
+                    } catch (err) {
+                        responseParts.push({
+                            functionResponse: {
+                                name: fc.name,
+                                response: {
+                                    error: `Error invoking tool ${fc.name}: ${err instanceof Error ? err.message : String(err)}`,
+                                },
+                                callId: fc.id,
+                            },
+                        });
+                    }
+                    onToolStatus(fc.name, 'done');
+                }
+
+                if (signal.aborted) break;
+
+                // Add function responses to history (role: 'user' per Gemini convention)
+                this.conversationHistory.push({ role: 'user', parts: responseParts });
+            }
+        } catch (err) {
+            if (signal.aborted) {
+                // Save whatever text was streamed so conversation stays coherent
+                if (accumulatedText) {
+                    this.conversationHistory.push({
+                        role: 'model',
+                        parts: [{ text: accumulatedText }],
+                    });
+                }
+                this.activeAbort = null;
+                throw new DOMException('Response cancelled', 'AbortError');
+            }
+            this.activeAbort = null;
+            throw err;
         }
+
+        // Check if we exited the loop due to abort (signal checked at loop boundaries)
+        if (signal.aborted) {
+            if (accumulatedText) {
+                // Text may already be in history from a completed round; avoid duplicates
+                const lastEntry = this.conversationHistory[this.conversationHistory.length - 1];
+                const lastIsModel = lastEntry?.role === 'model';
+                if (!lastIsModel) {
+                    this.conversationHistory.push({
+                        role: 'model',
+                        parts: [{ text: accumulatedText }],
+                    });
+                }
+            }
+            this.activeAbort = null;
+            throw new DOMException('Response cancelled', 'AbortError');
+        }
+
+        this.activeAbort = null;
     }
 
     clearHistory(): void {

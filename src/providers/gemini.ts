@@ -54,6 +54,7 @@ export class GeminiProvider implements ChatProvider {
         systemPrompt: string,
         tools: ToolDeclaration[],
         onTextChunk: (text: string) => void,
+        signal?: AbortSignal,
     ): Promise<StreamResult> {
         const ai = await this.getAI();
 
@@ -78,6 +79,7 @@ export class GeminiProvider implements ChatProvider {
         const functionCalls: StreamResult['functionCalls'] = [];
 
         for await (const chunk of response) {
+            if (signal?.aborted) break;
             const parts = chunk.candidates?.[0]?.content?.parts;
             if (parts && Array.isArray(parts)) {
                 for (const part of parts) {

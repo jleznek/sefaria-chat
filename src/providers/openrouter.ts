@@ -1,30 +1,34 @@
-import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult, BalanceInfo } from './types';
+import type { ChatProvider, ProviderInfo, Message, ToolDeclaration, StreamResult } from './types';
 
 let _openaiModule: any = null;
 
-export const DEEPSEEK_INFO: ProviderInfo = {
-    id: 'deepseek',
-    name: 'DeepSeek',
+export const OPENROUTER_INFO: ProviderInfo = {
+    id: 'openrouter',
+    name: 'OpenRouter',
     models: [
-        { id: 'deepseek-chat', name: 'DeepSeek-V3' },
-        { id: 'deepseek-reasoner', name: 'DeepSeek-R1' },
+        { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash' },
+        { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B' },
+        { id: 'mistralai/mistral-small-3.1-24b-instruct', name: 'Mistral Small 3.1' },
+        { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3' },
+        { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B' },
+        { id: 'google/gemini-2.5-flash-preview', name: 'Gemini 2.5 Flash' },
     ],
-    defaultModel: 'deepseek-chat',
+    defaultModel: 'google/gemini-2.0-flash-001',
     rateLimit: { rpm: 60, windowMs: 60_000 },
-    keyPlaceholder: 'sk-...',
-    keyHelpUrl: 'https://platform.deepseek.com/api_keys',
-    keyHelpLabel: 'DeepSeek Platform',
+    keyPlaceholder: 'sk-or-...',
+    keyHelpUrl: 'https://openrouter.ai/keys',
+    keyHelpLabel: 'OpenRouter',
 };
 
-export class DeepSeekProvider implements ChatProvider {
-    readonly info = DEEPSEEK_INFO;
+export class OpenRouterProvider implements ChatProvider {
+    readonly info = OPENROUTER_INFO;
     private client: any = null;
     private apiKey: string;
     private model: string;
 
     constructor(apiKey: string, model?: string) {
         this.apiKey = apiKey;
-        this.model = model || DEEPSEEK_INFO.defaultModel;
+        this.model = model || OPENROUTER_INFO.defaultModel;
     }
 
     private async getClient(): Promise<any> {
@@ -35,7 +39,11 @@ export class DeepSeekProvider implements ChatProvider {
             const OpenAI = _openaiModule.default || _openaiModule.OpenAI;
             this.client = new OpenAI({
                 apiKey: this.apiKey,
-                baseURL: 'https://api.deepseek.com',
+                baseURL: 'https://openrouter.ai/api/v1',
+                defaultHeaders: {
+                    'HTTP-Referer': 'https://github.com/jleznek/sefaria-chat',
+                    'X-Title': 'Sefaria Chat',
+                },
             });
         }
         return this.client;
@@ -161,22 +169,5 @@ export class DeepSeekProvider implements ChatProvider {
             messages: [{ role: 'user', content: prompt }],
         });
         return response.choices?.[0]?.message?.content || '';
-    }
-
-    async getBalance(): Promise<BalanceInfo | null> {
-        try {
-            const res = await fetch('https://api.deepseek.com/user/balance', {
-                headers: { 'Authorization': `Bearer ${this.apiKey}` },
-            });
-            if (!res.ok) return null;
-            const data: any = await res.json();
-            const info = data?.balance_infos?.[0];
-            if (!info) return null;
-            const total = parseFloat(info.total_balance);
-            if (isNaN(total)) return null;
-            return { balance: total, currency: info.currency || 'CNY' };
-        } catch {
-            return null;
-        }
     }
 }

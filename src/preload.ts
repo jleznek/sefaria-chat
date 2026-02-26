@@ -41,7 +41,8 @@ export interface SefariaApi {
     sendMessage(
         message: string,
         responseLength?: string,
-    ): Promise<{ success?: boolean; error?: string; retryable?: boolean; chatId?: string }>;
+    ): Promise<{ success?: boolean; error?: string; retryable?: boolean; chatId?: string; cancelled?: boolean }>;
+    cancelMessage(): Promise<{ success?: boolean }>;
     clearChat(): Promise<boolean>;
     reconnectMcp(): Promise<boolean>;
 
@@ -71,13 +72,8 @@ export interface SefariaApi {
     resizeForWebview(open: boolean): Promise<void>;
     printChat(html: string): Promise<void>;
 
-    // Auto-update
-    onUpdateStatus(callback: (data: { status: string; version?: string; percent?: number }) => void): void;
-    installUpdate(): Promise<void>;
-    checkForUpdates(): Promise<{ version: string | null }>;
     getAppVersion(): Promise<string>;
     getChangelog(): Promise<string>;
-    isStoreApp(): Promise<boolean>;
 }
 
 contextBridge.exposeInMainWorld('sefaria', {
@@ -103,6 +99,7 @@ contextBridge.exposeInMainWorld('sefaria', {
     getMcpStatus: () => ipcRenderer.invoke('get-mcp-status'),
     sendMessage: (message: string, responseLength?: string) =>
         ipcRenderer.invoke('send-message', { message, responseLength }),
+    cancelMessage: () => ipcRenderer.invoke('cancel-message'),
     clearChat: () => ipcRenderer.invoke('clear-chat'),
     reconnectMcp: () => ipcRenderer.invoke('reconnect-mcp'),
 
@@ -147,13 +144,6 @@ contextBridge.exposeInMainWorld('sefaria', {
     resizeForWebview: (open: boolean) => ipcRenderer.invoke('resize-for-webview', open),
     printChat: (html: string) => ipcRenderer.invoke('print-chat', { html }),
 
-    // Auto-update
-    onUpdateStatus: (callback: (data: { status: string; version?: string; percent?: number }) => void) => {
-        ipcRenderer.on('update-status', (_event, data) => callback(data));
-    },
-    installUpdate: () => ipcRenderer.invoke('install-update'),
-    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getChangelog: () => ipcRenderer.invoke('get-changelog'),
-    isStoreApp: () => ipcRenderer.invoke('is-store-app'),
 } satisfies SefariaApi);

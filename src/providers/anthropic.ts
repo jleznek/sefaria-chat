@@ -111,6 +111,7 @@ export class AnthropicProvider implements ChatProvider {
         systemPrompt: string,
         tools: ToolDeclaration[],
         onTextChunk: (text: string) => void,
+        signal?: AbortSignal,
     ): Promise<StreamResult> {
         const client = await this.getClient();
         const messages = this.convertHistory(history);
@@ -131,6 +132,13 @@ export class AnthropicProvider implements ChatProvider {
             messages,
             tools: anthropicTools,
         });
+
+        // Wire external cancel signal to the Anthropic stream
+        if (signal) {
+            const onAbort = () => stream.abort();
+            if (signal.aborted) { stream.abort(); }
+            else { signal.addEventListener('abort', onAbort, { once: true }); }
+        }
 
         let text = '';
         stream.on('text', (delta: string) => {

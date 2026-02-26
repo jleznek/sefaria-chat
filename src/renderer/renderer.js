@@ -566,10 +566,32 @@ function createAssistantMessage() {
             scrollToBottom();
         },
         finalize() {
+            hideThinking();
             // Re-render final markdown to pick up any partial flush
             if (rawText) {
                 contentDiv.innerHTML = renderMarkdown(rawText);
                 renderPendingMermaid(contentDiv);
+            } else {
+                // No text was streamed — remove the empty bubble
+                el.remove();
+            }
+            scrollToBottom();
+        },
+        showCancelled() {
+            hideThinking();
+            // Finalize any partial text first
+            if (rawText) {
+                contentDiv.innerHTML = renderMarkdown(rawText);
+                renderPendingMermaid(contentDiv);
+            }
+            const notice = document.createElement('div');
+            notice.className = 'cancelled-notice';
+            notice.textContent = 'Response stopped by user';
+            if (rawText) {
+                contentDiv.appendChild(notice);
+            } else {
+                contentDiv.innerHTML = '';
+                contentDiv.appendChild(notice);
             }
             scrollToBottom();
         }
@@ -593,7 +615,9 @@ async function sendMessage() {
     if (!text || isStreaming) return;
 
     isStreaming = true;
-    sendBtn.disabled = true;
+    sendBtn.disabled = false;
+    sendBtn.classList.add('stop-mode');
+    sendBtn.title = 'Stop generating';
     messageInput.value = '';
     autoResize();
     if (autoScrollPreference) autoScrollEnabled = true; // Re-enable auto-scroll for new messages
@@ -608,6 +632,22 @@ async function sendMessage() {
 
     try {
         const result = await api.sendMessage(text, responseLength);
+        if (result && result.cancelled) {
+            // stream-end event may have already fired; ensure UI is reset
+            if (currentAssistantMsg) {
+                currentAssistantMsg.showCancelled();
+                currentAssistantMsg = null;
+            }
+            isStreaming = false;
+            sendBtn.classList.remove('stop-mode');
+            sendBtn.title = 'Send';
+            sendBtn.disabled = !messageInput.value.trim();
+            if (result.chatId) {
+                currentChatId = result.chatId;
+                if (sidebarOpen) refreshChatList();
+            }
+            return;
+        }
         if (result && result.chatId) {
             currentChatId = result.chatId;
             if (sidebarOpen) refreshChatList();
@@ -621,6 +661,8 @@ async function sendMessage() {
                 errBubble.showError(result.error, retryable);
             }
             isStreaming = false;
+            sendBtn.classList.remove('stop-mode');
+            sendBtn.title = 'Send';
             sendBtn.disabled = false;
             currentAssistantMsg = null;
         }
@@ -635,6 +677,8 @@ async function sendMessage() {
             errBubble.showError(msg);
         }
         isStreaming = false;
+        sendBtn.classList.remove('stop-mode');
+        sendBtn.title = 'Send';
         sendBtn.disabled = false;
         currentAssistantMsg = null;
     }
@@ -650,10 +694,16 @@ api.onChatStream((data) => {
 
 api.onChatStreamEnd((data) => {
     if (currentAssistantMsg) {
-        currentAssistantMsg.finalize();
+        if (data && data.cancelled) {
+            currentAssistantMsg.showCancelled();
+        } else {
+            currentAssistantMsg.finalize();
+        }
         currentAssistantMsg = null;
     }
     isStreaming = false;
+    sendBtn.classList.remove('stop-mode');
+    sendBtn.title = 'Send';
     sendBtn.disabled = !messageInput.value.trim();
 
     // Refresh balance after each response (credits may have been spent)
@@ -763,7 +813,9 @@ function autoResize() {
 // ── Event wiring ──────────────────────────────────────────────────────
 messageInput.addEventListener('input', () => {
     autoResize();
-    sendBtn.disabled = !messageInput.value.trim() || isStreaming;
+    if (!isStreaming) {
+        sendBtn.disabled = !messageInput.value.trim();
+    }
 });
 
 messageInput.addEventListener('keydown', (e) => {
@@ -773,7 +825,13 @@ messageInput.addEventListener('keydown', (e) => {
     }
 });
 
-sendBtn.addEventListener('click', sendMessage);
+sendBtn.addEventListener('click', () => {
+    if (isStreaming) {
+        api.cancelMessage().catch(e => console.error('Cancel failed:', e));
+    } else {
+        sendMessage();
+    }
+});
 
 clearBtn.addEventListener('click', () => resetToWelcome());
 
@@ -1327,97 +1385,102 @@ splitHandle.addEventListener('mousedown', (e) => {
     document.addEventListener('mouseup', onMouseUp);
 });
 
-// ── Auto-update UI ────────────────────────────────────────────────────
-const updateBar = /** @type {HTMLDivElement} */ (document.getElementById('update-bar'));
-const updateText = /** @type {HTMLSpanElement} */ (document.getElementById('update-text'));
-const updateAction = /** @type {HTMLButtonElement} */ (document.getElementById('update-action'));
-const updateDismiss = /** @type {HTMLButtonElement} */ (document.getElementById('update-dismiss'));
+// ── Activated providers display ───────────────────────────────────────
 
-api.onUpdateStatus((data) => {
-    const progressRow = document.getElementById('settings-update-progress');
-    const progressFill = document.getElementById('update-progress-fill');
-    const progressPct = document.getElementById('update-progress-pct');
-    if (data.status === 'downloading') {
-        updateBar.classList.remove('hidden');
-        const pct = data.percent != null ? ` (${data.percent}%)` : '';
-        updateText.textContent = `Downloading update${data.version ? ' v' + data.version : ''}${pct}\u2026`;
-        updateAction.style.display = 'none';
-        // Also update settings panel if open
-        const settingsInstallRow = document.getElementById('settings-update-install');
-        if (settingsInstallRow) settingsInstallRow.classList.add('hidden');
-        updateCheckStatus.textContent = `Downloading${data.version ? ' v' + data.version : ''}\u2026`;
-        // Show progress bar in settings
-        if (progressRow && progressFill) {
-            progressRow.classList.remove('hidden');
-            if (data.percent != null) {
-                progressFill.style.width = `${data.percent}%`;
-                if (progressPct) progressPct.textContent = `${data.percent}%`;
+/**
+ * Helper: create and attach an inline key-entry form for a provider.
+ * Used by both "Configure" (new key) and "Edit" (change key) flows.
+ * @param {HTMLElement} anchor  Element after which the form is inserted
+ * @param {HTMLElement} parentContainer  The overall providers container (for collapsing others)
+ * @param {object} p  Provider info object from getConfiguredProviders()
+ * @param {{ isEdit?: boolean }} opts
+ */
+function showInlineKeyForm(anchor, parentContainer, p, opts = {}) {
+    // Collapse any other open inline forms
+    parentContainer.querySelectorAll('.provider-inline-form').forEach(f => f.remove());
+    parentContainer.querySelectorAll('.provider-row').forEach(i => i.classList.remove('configuring'));
+    parentContainer.querySelectorAll('.provider-add-card').forEach(i => i.classList.remove('configuring'));
+
+    const form = document.createElement('div');
+    form.className = 'provider-inline-form';
+
+    const needsKey = p.requiresKey !== false;
+    const keyHint = needsKey
+        ? `Get a key from <a href="${p.keyHelpUrl}" target="_blank">${escapeHtml(p.keyHelpLabel)}</a>`
+        : `${escapeHtml(p.keyHelpLabel)}. Runs locally, no API key required.`;
+
+    form.innerHTML = `
+        ${needsKey ? `<div class="setup-input-group">
+            <input type="password" class="inline-api-key" placeholder="${escapeHtml(p.keyPlaceholder || 'Enter API key...')}" autocomplete="off">
+            <button class="inline-save-btn">Save</button>
+        </div>` : `<div class="setup-input-group">
+            <button class="inline-save-btn">Activate</button>
+        </div>`}
+        <p class="inline-validation-msg"></p>
+        <p class="settings-key-hint">${keyHint}</p>`;
+
+    // For cards inside the grid, insert form after the grid (not inside it)
+    const grid = anchor.closest('.provider-add-grid');
+    if (grid) {
+        anchor.classList.add('configuring');
+        grid.after(form);
+    } else {
+        anchor.classList.add('configuring');
+        anchor.after(form);
+    }
+
+    const saveBtn = form.querySelector('.inline-save-btn');
+    const keyInput = form.querySelector('.inline-api-key');
+    const validationMsg = form.querySelector('.inline-validation-msg');
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
+            if (needsKey && !key) return;
+
+            if (needsKey && key) {
+                saveBtn.textContent = 'Validating...';
+                saveBtn.disabled = true;
+                validationMsg.textContent = '';
+                validationMsg.className = 'inline-validation-msg';
+
+                const result = await api.validateApiKey(p.id, key);
+                if (!result.valid) {
+                    validationMsg.textContent = result.error || 'Invalid key.';
+                    validationMsg.className = 'inline-validation-msg validation-error';
+                    saveBtn.textContent = 'Save';
+                    saveBtn.disabled = false;
+                    return;
+                }
+                if (result.warning) {
+                    validationMsg.textContent = result.warning;
+                    validationMsg.className = 'inline-validation-msg validation-warning';
+                }
             }
-        }
-    } else if (data.status === 'ready') {
-        updateBar.classList.remove('hidden');
-        updateText.textContent = `Update${data.version ? ' v' + data.version : ''} ready`;
-        updateAction.style.display = '';
-        updateAction.textContent = 'Restart to update';
-        // Also show install button in settings panel
-        const settingsInstallRow = document.getElementById('settings-update-install');
-        const settingsUpdateVersion = document.getElementById('settings-update-version');
-        if (settingsInstallRow) settingsInstallRow.classList.remove('hidden');
-        if (settingsUpdateVersion) settingsUpdateVersion.textContent = `v${data.version || ''} ready to install`;
-        updateCheckStatus.textContent = `Update${data.version ? ' v' + data.version : ''} downloaded!`;
-        updateCheckStatus.className = 'update-check-status';
-        // Hide progress bar
-        if (progressRow) progressRow.classList.add('hidden');
-    } else if (data.status === 'error') {
-        // Download failed — hide the banner and show error in settings
-        updateBar.classList.add('hidden');
-        if (progressRow) progressRow.classList.add('hidden');
-        updateCheckStatus.textContent = `Update failed: ${data.error || 'unknown error'}`;
-        updateCheckStatus.className = 'update-check-status';
+
+            const modelId = p.defaultModel || (p.models && p.models[0] ? p.models[0].id : '');
+            await api.saveProviderConfig({ providerId: p.id, modelId: opts.isEdit ? (activeModelId || modelId) : modelId, apiKey: key || undefined });
+            if (!opts.isEdit) {
+                activeProviderId = p.id;
+                activeModelId = modelId;
+            }
+            await refreshModelPicker();
+            await refreshActivatedProviders();
+            try {
+                const stats = await api.getUsageStats();
+                updateRateLimitBar(stats);
+            } catch { /* ignore */ }
+        });
     }
-});
 
-updateAction.addEventListener('click', () => {
-    api.installUpdate();
-});
-
-updateDismiss.addEventListener('click', () => {
-    updateBar.classList.add('hidden');
-});
-
-// ── Check for updates button in Settings ──────────────────────────────
-const checkUpdatesBtn = /** @type {HTMLButtonElement} */ (document.getElementById('check-updates-btn'));
-const updateCheckStatus = /** @type {HTMLSpanElement} */ (document.getElementById('update-check-status'));
-
-checkUpdatesBtn.addEventListener('click', async () => {
-    checkUpdatesBtn.disabled = true;
-    updateCheckStatus.textContent = 'Checking…';
-    updateCheckStatus.className = 'update-check-status';
-    try {
-        const result = await api.checkForUpdates();
-        if (result.version) {
-            updateCheckStatus.textContent = `Update v${result.version} available \u2014 downloading…`;
-            updateCheckStatus.className = 'update-check-status';
-        } else {
-            updateCheckStatus.textContent = 'You\u2019re up to date.';
-            updateCheckStatus.className = 'update-check-status success';
-        }
-    } catch {
-        updateCheckStatus.textContent = 'Could not check for updates.';
-        updateCheckStatus.className = 'update-check-status';
+    if (keyInput) {
+        keyInput.addEventListener('keydown', (ke) => {
+            if (ke.key === 'Enter' && saveBtn) saveBtn.click();
+        });
+        keyInput.focus();
     }
-    checkUpdatesBtn.disabled = false;
-});
-
-// Install button in Settings panel
-const settingsInstallBtn = document.getElementById('settings-install-btn');
-if (settingsInstallBtn) {
-    settingsInstallBtn.addEventListener('click', () => {
-        api.installUpdate();
-    });
 }
 
-// ── Activated providers display ───────────────────────────────────────
 async function refreshActivatedProviders() {
     const container = document.getElementById('activated-providers');
     if (!container) return;
@@ -1450,263 +1513,160 @@ async function refreshActivatedProviders() {
 
         container.innerHTML = '';
 
-        // Sort: configured first (active on top), then unconfigured
-        const sorted = [...configured].sort((a, b) => {
-            if (a.id === activeProviderId) return -1;
-            if (b.id === activeProviderId) return 1;
-            if (a.hasKey && !b.hasKey) return -1;
-            if (!a.hasKey && b.hasKey) return 1;
-            return 0;
-        });
+        // Partition into configured and unconfigured
+        const readyProviders = [];
+        const availableProviders = [];
 
-        for (const p of sorted) {
-            const isActive = p.id === activeProviderId;
+        for (const p of configured) {
             let hasKey = p.hasKey;
-
-            // Override Ollama status based on actual detection
-            let ollamaNoModels = false;
             if (p.id === 'ollama') {
-                if (p._ollamaStatus === 'no-models') {
-                    ollamaNoModels = true;
-                    hasKey = false; // treat as not ready
-                } else if (p._ollamaStatus === 'not-running') {
+                if (p._ollamaStatus === 'no-models' || p._ollamaStatus === 'not-running') {
                     hasKey = false;
                 }
             }
-
-            const item = document.createElement('div');
-            item.className = 'provider-status-item' + (isActive ? ' active' : '') + (hasKey ? ' clickable' : '');
-
-            const iconClass = hasKey ? 'configured' : 'not-configured';
-            const iconSymbol = hasKey ? '\u2713' : '\u2014';
-            const badgeClass = hasKey ? 'configured' : 'not-configured';
-            let badgeText = hasKey ? (isActive ? 'Active' : 'Ready') : 'Not configured';
-            let detail = hasKey
-                ? (p.requiresKey === false ? 'Local \u2014 no key needed' : 'API key saved')
-                : (p.requiresKey === false ? 'Local \u2014 no key needed' : 'Click Configure to add an API key');
-            if (p.id === 'ollama' && ollamaNoModels) {
-                badgeText = 'No models';
-                detail = 'Ollama is running but no models are pulled. Run "ollama pull llama3.2" in a terminal.';
-            } else if (p.id === 'ollama' && p._ollamaStatus === 'not-running') {
-                badgeText = 'Not running';
-                detail = 'Ollama is not running. Start it and pull a model to use local AI.';
+            if (hasKey) {
+                readyProviders.push(p);
+            } else {
+                availableProviders.push(p);
             }
+        }
 
-            item.innerHTML = `
-                <div class="provider-status-icon ${iconClass}">${iconSymbol}</div>
-                <div class="provider-status-info">
-                    <div class="provider-status-name">${escapeHtml(p.name)}</div>
-                    <div class="provider-status-detail">${escapeHtml(detail)}</div>
-                </div>
-                <span class="provider-status-badge ${badgeClass}">${escapeHtml(badgeText)}</span>
-                ${hasKey && p.requiresKey !== false ? '<button class="provider-edit-key-btn" title="Change API key">&#9998;</button>' : ''}
-                ${hasKey && p.requiresKey !== false ? '<button class="provider-remove-btn" title="Remove API key">&times;</button>' : ''}
-                ${!hasKey && p.requiresKey !== false ? '<button class="provider-configure-btn">Configure</button>' : ''}`;
+        // Sort ready: active first
+        readyProviders.sort((a, b) => {
+            if (a.id === activeProviderId) return -1;
+            if (b.id === activeProviderId) return 1;
+            return 0;
+        });
 
-            // Click a configured provider to make it the default
-            if (hasKey && !isActive) {
-                item.addEventListener('click', async (e) => {
-                    if (/** @type {HTMLElement} */ (e.target).closest('.provider-remove-btn')) return;
-                    if (/** @type {HTMLElement} */ (e.target).closest('.provider-edit-key-btn')) return;
-                    const defaultModel = p.defaultModel || (p.models && p.models[0] ? p.models[0].id : '');
-                    const result = await api.switchProvider(p.id, defaultModel);
-                    if (!result.error) {
-                        activeProviderId = p.id;
-                        activeModelId = defaultModel;
-                        await refreshModelPicker();
-                        await refreshActivatedProviders();
-                        try {
-                            const stats = await api.getUsageStats();
-                            updateRateLimitBar(stats);
-                        } catch { /* ignore */ }
-                    }
-                });
-            }
+        // ── Section 1: Configured providers (compact rows) ──
+        if (readyProviders.length > 0) {
+            for (const p of readyProviders) {
+                const isActive = p.id === activeProviderId;
+                const row = document.createElement('div');
+                row.className = 'provider-row' + (isActive ? ' active' : '');
 
-            // Remove button handler
-            const removeBtn = item.querySelector('.provider-remove-btn');
-            if (removeBtn) {
-                removeBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const result = await api.removeProviderKey(p.id);
-                    if (result.switchedTo) {
-                        activeProviderId = result.switchedTo;
-                        activeModelId = result.modelId || '';
-                    }
-                    await refreshModelPicker();
-                    await refreshActivatedProviders();
-                    try {
-                        const stats = await api.getUsageStats();
-                        updateRateLimitBar(stats);
-                    } catch { /* ignore */ }
-                });
-            }
+                const activeModel = isActive ? activeModelId : p.defaultModel;
+                const modelName = (p.models || []).find(m => m.id === activeModel)?.name || activeModel || '';
 
-            // Edit key button — expand inline form for changing key
-            const editKeyBtn = item.querySelector('.provider-edit-key-btn');
-            if (editKeyBtn) {
-                editKeyBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    // Collapse any other open inline forms
-                    container.querySelectorAll('.provider-inline-form').forEach(f => f.remove());
-                    container.querySelectorAll('.provider-status-item').forEach(i => i.classList.remove('configuring'));
+                let statusHtml = '';
+                if (isActive) {
+                    statusHtml = `<span class="provider-badge active">Active</span>`;
+                }
 
-                    item.classList.add('configuring');
-                    const form = document.createElement('div');
-                    form.className = 'provider-inline-form';
+                row.innerHTML = `
+                    <div class="provider-row-main">
+                        <span class="provider-row-name">${escapeHtml(p.name)}</span>
+                        ${modelName ? `<span class="provider-row-model">${escapeHtml(modelName)}</span>` : ''}
+                        ${statusHtml}
+                    </div>
+                    <div class="provider-row-actions">
+                        ${p.requiresKey !== false ? '<button class="provider-action-btn edit-btn" title="Change API key">&#9998;</button>' : ''}
+                        <button class="provider-action-btn remove-btn" title="Remove">&times;</button>
+                    </div>`;
 
-                    const keyHint = `Get a key from <a href="${p.keyHelpUrl}" target="_blank">${escapeHtml(p.keyHelpLabel)}</a>`;
-
-                    form.innerHTML = `
-                        <div class="setup-input-group">
-                            <input type="password" class="inline-api-key" placeholder="${escapeHtml(p.keyPlaceholder || 'Enter new API key...')}" autocomplete="off">
-                            <button class="inline-save-btn">Save</button>
-                        </div>
-                        <p class="inline-validation-msg"></p>
-                        <p class="settings-key-hint">${keyHint}</p>`;
-
-                    item.after(form);
-
-                    const saveBtn = form.querySelector('.inline-save-btn');
-                    const keyInput = form.querySelector('.inline-api-key');
-                    const validationMsg = form.querySelector('.inline-validation-msg');
-
-                    if (saveBtn) {
-                        saveBtn.addEventListener('click', async () => {
-                            const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
-                            if (!key) return;
-
-                            // Validate key before saving
-                            saveBtn.textContent = 'Validating...';
-                            saveBtn.disabled = true;
-                            validationMsg.textContent = '';
-                            validationMsg.className = 'inline-validation-msg';
-
-                            const result = await api.validateApiKey(p.id, key);
-                            if (!result.valid) {
-                                validationMsg.textContent = result.error || 'Invalid key.';
-                                validationMsg.className = 'inline-validation-msg validation-error';
-                                saveBtn.textContent = 'Save';
-                                saveBtn.disabled = false;
-                                return;
-                            }
-                            if (result.warning) {
-                                validationMsg.textContent = result.warning;
-                                validationMsg.className = 'inline-validation-msg validation-warning';
-                            }
-
-                            await api.saveProviderConfig({ providerId: p.id, modelId: activeModelId || p.defaultModel || '', apiKey: key });
-                            await refreshModelPicker();
-                            await refreshActivatedProviders();
-                        });
-                    }
-
-                    if (keyInput) {
-                        keyInput.addEventListener('keydown', (ke) => {
-                            if (ke.key === 'Enter' && saveBtn) saveBtn.click();
-                        });
-                        keyInput.focus();
-                    }
-                });
-            }
-
-            // Configure button — expand inline form
-            const configureBtn = item.querySelector('.provider-configure-btn');
-            if (configureBtn) {
-                configureBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    // Collapse any other open inline forms
-                    container.querySelectorAll('.provider-inline-form').forEach(f => f.remove());
-                    container.querySelectorAll('.provider-status-item').forEach(i => i.classList.remove('configuring'));
-
-                    item.classList.add('configuring');
-
-                    const form = document.createElement('div');
-                    form.className = 'provider-inline-form';
-
-                    const needsKey = p.requiresKey !== false;
-                    const keyHint = needsKey
-                        ? `Get a key from <a href="${p.keyHelpUrl}" target="_blank">${escapeHtml(p.keyHelpLabel)}</a>`
-                        : `${escapeHtml(p.keyHelpLabel)}. Runs locally, no API key required.`;
-
-                    // Build model options
-                    let modelOptions = '';
-                    if (p.models) {
-                        for (const m of p.models) {
-                            const selected = m.id === p.defaultModel ? ' selected' : '';
-                            modelOptions += `<option value="${escapeHtml(m.id)}"${selected}>${escapeHtml(m.name)}</option>`;
-                        }
-                    }
-
-                    form.innerHTML = `
-                        <select class="provider-select model-select inline-model-select">${modelOptions}</select>
-                        ${needsKey ? `<div class="setup-input-group">
-                            <input type="password" class="inline-api-key" placeholder="${escapeHtml(p.keyPlaceholder || 'Enter API key...')}" autocomplete="off">
-                            <button class="inline-save-btn">Save</button>
-                        </div>` : `<div class="setup-input-group">
-                            <button class="inline-save-btn">Activate</button>
-                        </div>`}
-                        <p class="inline-validation-msg"></p>
-                        <p class="settings-key-hint">${keyHint}</p>`;
-
-                    item.after(form);
-
-                    // Save handler
-                    const saveBtn = form.querySelector('.inline-save-btn');
-                    const keyInput = form.querySelector('.inline-api-key');
-                    const modelSelect = /** @type {HTMLSelectElement|null} */ (form.querySelector('.inline-model-select'));
-                    const validationMsg = form.querySelector('.inline-validation-msg');
-
-                    if (saveBtn) {
-                        saveBtn.addEventListener('click', async () => {
-                            const modelId = modelSelect ? modelSelect.value : (p.defaultModel || '');
-                            const key = keyInput ? /** @type {HTMLInputElement} */ (keyInput).value.trim() : '';
-                            if (needsKey && !key) return;
-
-                            // Validate key before saving (only for providers that need keys)
-                            if (needsKey && key) {
-                                saveBtn.textContent = 'Validating...';
-                                saveBtn.disabled = true;
-                                validationMsg.textContent = '';
-                                validationMsg.className = 'inline-validation-msg';
-
-                                const result = await api.validateApiKey(p.id, key);
-                                if (!result.valid) {
-                                    validationMsg.textContent = result.error || 'Invalid key.';
-                                    validationMsg.className = 'inline-validation-msg validation-error';
-                                    saveBtn.textContent = 'Save';
-                                    saveBtn.disabled = false;
-                                    return;
-                                }
-                                if (result.warning) {
-                                    validationMsg.textContent = result.warning;
-                                    validationMsg.className = 'inline-validation-msg validation-warning';
-                                }
-                            }
-
-                            await api.saveProviderConfig({ providerId: p.id, modelId, apiKey: key || undefined });
+                // Click to activate
+                if (!isActive) {
+                    row.style.cursor = 'pointer';
+                    row.addEventListener('click', async (e) => {
+                        if (/** @type {HTMLElement} */ (e.target).closest('.provider-action-btn')) return;
+                        const defaultModel = p.defaultModel || (p.models && p.models[0] ? p.models[0].id : '');
+                        const result = await api.switchProvider(p.id, defaultModel);
+                        if (!result.error) {
                             activeProviderId = p.id;
-                            activeModelId = modelId;
+                            activeModelId = defaultModel;
                             await refreshModelPicker();
                             await refreshActivatedProviders();
                             try {
                                 const stats = await api.getUsageStats();
                                 updateRateLimitBar(stats);
                             } catch { /* ignore */ }
-                        });
-                    }
+                        }
+                    });
+                }
 
-                    // Allow Enter to submit
-                    if (keyInput) {
-                        keyInput.addEventListener('keydown', (ke) => {
-                            if (ke.key === 'Enter' && saveBtn) saveBtn.click();
-                        });
-                        keyInput.focus();
-                    }
-                });
+                // Remove handler
+                const removeBtn = row.querySelector('.remove-btn');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const result = await api.removeProviderKey(p.id);
+                        if (result.switchedTo) {
+                            activeProviderId = result.switchedTo;
+                            activeModelId = result.modelId || '';
+                        }
+                        await refreshModelPicker();
+                        await refreshActivatedProviders();
+                        try {
+                            const stats = await api.getUsageStats();
+                            updateRateLimitBar(stats);
+                        } catch { /* ignore */ }
+                    });
+                }
+
+                // Edit key handler
+                const editBtn = row.querySelector('.edit-btn');
+                if (editBtn) {
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showInlineKeyForm(row, container, p, { isEdit: true });
+                    });
+                }
+
+                container.appendChild(row);
+            }
+        }
+
+        // ── Section 2: Add a provider ──
+        if (availableProviders.length > 0) {
+            const addSection = document.createElement('div');
+            addSection.className = 'provider-add-section';
+
+            const addHeader = document.createElement('button');
+            addHeader.className = 'provider-add-header';
+            addHeader.innerHTML = `<span class="provider-add-icon">+</span> Add a provider <span class="provider-add-count">${availableProviders.length} available</span>`;
+
+            const addGrid = document.createElement('div');
+            addGrid.className = 'provider-add-grid';
+
+            // If no providers configured yet, show expanded
+            if (readyProviders.length === 0) {
+                addGrid.classList.add('expanded');
+                addHeader.classList.add('expanded');
             }
 
-            container.appendChild(item);
+            addHeader.addEventListener('click', () => {
+                addGrid.classList.toggle('expanded');
+                addHeader.classList.toggle('expanded');
+            });
+
+            for (const p of availableProviders) {
+                const card = document.createElement('div');
+                card.className = 'provider-add-card';
+
+                // Ollama special status
+                let subtitle = p.keyHelpLabel;
+                if (p.id === 'ollama') {
+                    if (p._ollamaStatus === 'no-models') {
+                        subtitle = 'No models pulled';
+                    } else if (p._ollamaStatus === 'not-running') {
+                        subtitle = 'Not running';
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="provider-add-card-name">${escapeHtml(p.name)}</div>
+                    <div class="provider-add-card-sub">${escapeHtml(subtitle)}</div>`;
+
+                card.addEventListener('click', () => {
+                    showInlineKeyForm(card, container, p, { isEdit: false });
+                });
+
+                addGrid.appendChild(card);
+            }
+
+            addSection.appendChild(addHeader);
+            addSection.appendChild(addGrid);
+            container.appendChild(addSection);
         }
     } catch { /* ignore */ }
 }
@@ -1766,15 +1726,6 @@ async function refreshActivatedProviders() {
         const ver = await api.getAppVersion();
         document.getElementById('app-version').textContent = ver;
         document.title = `Sefaria Chat v${ver}`;
-    } catch { /* ignore */ }
-
-    // Hide Updates section for Microsoft Store builds
-    try {
-        const storeApp = await api.isStoreApp();
-        if (storeApp) {
-            const updatesSection = document.getElementById('updates-section');
-            if (updatesSection) updatesSection.style.display = 'none';
-        }
     } catch { /* ignore */ }
 
     // Load changelog into About section

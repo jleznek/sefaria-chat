@@ -170,8 +170,7 @@ add_table(
         ['AI Providers', 'Google Gemini, OpenAI, Anthropic, Ollama'],
         ['MCP Client', '@modelcontextprotocol/sdk (SSE + Streamable HTTP)'],
         ['Bundler', 'esbuild (main + preload bundles)'],
-        ['Packaging', 'electron-builder → NSIS/portable (Win), DMG (Mac), AppImage/deb (Linux)'],
-        ['Auto-Update', 'electron-updater → GitHub Releases'],
+        ['Packaging', 'electron-builder → Microsoft Store (appx)'],
     ]
 )
 
@@ -327,8 +326,6 @@ ipc_r2m = [
     ['get-usage-stats', '(none)', '{used, limit, resetsInSeconds}', 'Rate limit usage'],
     ['resize-for-webview', 'open: boolean', 'void', 'Resize window for side pane'],
     ['print-chat', '{html}', 'void', 'Generate PDF from chat HTML'],
-    ['install-update', '(none)', 'void', 'Quit and install downloaded update'],
-    ['check-for-updates', '(none)', '{version: string|null}', 'Manual update check'],
     ['get-app-version', '(none)', 'string', 'App version from package.json'],
     ['get-changelog', '(none)', 'string', 'CHANGELOG.md contents'],
 ]
@@ -347,7 +344,6 @@ ipc_m2r = [
     ['mcp-status', '{connected, toolCount?, error?, servers?}', 'MCP connection status update'],
     ['open-url', 'url: string', 'Open URL in embedded webview pane'],
     ['usage-update', '{used, limit, resetsInSeconds}', 'Rate limit stats after each message'],
-    ['update-status', '{status, version?, percent?}', 'Auto-updater progress (downloading/ready)'],
 ]
 add_table(['Channel', 'Data', 'Description'], ipc_m2r)
 
@@ -556,11 +552,10 @@ doc.add_paragraph(
     '(Current User/Personal) with subject name "Sefaria Chat".'
 )
 
-doc.add_heading('Auto-Update Flow', level=2)
+doc.add_heading('Distribution & Updates', level=2)
 doc.add_paragraph(
-    'The app uses electron-updater configured to check GitHub Releases. When a new version is '
-    'found, it downloads automatically in the background. The latest.yml file in the release '
-    'assets tells electron-updater about the available version and checksums.'
+    'The app is distributed exclusively through the Microsoft Store. Updates are delivered '
+    'automatically by the Store. The appx package is built using electron-builder.'
 )
 
 doc.add_page_break()
@@ -679,11 +674,10 @@ doc.add_paragraph(
     'the Windows Certificate Store, not in the repository.'
 )
 
-doc.add_heading('Auto-Update Security', level=2)
+doc.add_heading('Update Security', level=2)
 doc.add_paragraph(
-    'Updates are served exclusively from GitHub Releases (github.com/jleznek/sefaria-chat). '
-    'electron-updater verifies download checksums against the latest.yml manifest before installation. '
-    'All communication uses HTTPS.'
+    'Updates are delivered through the Microsoft Store, which handles code signing verification '
+    'and integrity checks. All communication uses HTTPS.'
 )
 
 # ── Save ───────────────────────────────────────────────────────────────

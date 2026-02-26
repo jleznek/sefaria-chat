@@ -12,15 +12,15 @@ npm run watch         # Watch mode: esbuild + tsc in parallel (then run `npx ele
 npm run check-types   # TypeScript type-check only (no emit)
 npm run lint          # ESLint
 npm run compile       # Type-check + esbuild bundle + copy renderer files to dist/
-npm run dist:win      # Package Windows NSIS installer + portable
+npm run dist          # Package Windows appx for Microsoft Store
 ```
 
-There are no automated tests. `dist:mac` and `dist:linux` are disabled (echo stubs only). Press F5 in VS Code to debug the main process.
+There are no automated tests. `dist:mac` and `dist:linux` are disabled (echo stubs only). The app is distributed exclusively through the Microsoft Store. Press F5 in VS Code to debug the main process.
 
 ## Architecture
 
 **Three-process Electron design:**
-- `src/main.ts` – Main process: window management, IPC handlers, settings/chat persistence (`userData/settings.json`), auto-updates via `electron-updater`
+- `src/main.ts` – Main process: window management, IPC handlers, settings/chat persistence (`userData/settings.json`)
 - `src/preload.ts` – Context bridge only; exposes `window.sefaria` API (~30 methods) to the renderer via `contextBridge.exposeInMainWorld`. The renderer has no direct Node.js access.
 - `src/renderer/` – Vanilla HTML/CSS/JS. All communication goes through `window.sefaria` IPC calls, never direct Node APIs.
 

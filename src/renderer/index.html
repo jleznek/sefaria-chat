@@ -182,7 +182,6 @@
                 <div class="settings-content">
                     <div class="settings-section">
                         <h3>Providers</h3>
-                        <p class="settings-section-hint">Click a provider to make it active, or configure a new one.</p>
                         <div id="activated-providers" class="activated-providers"></div>
                     </div>
                     <div class="settings-section">
@@ -198,19 +197,6 @@
                         </label>
                     </div>
                     <div class="settings-section" id="updates-section">
-                        <h3>Updates</h3>
-                        <div class="settings-update-row">
-                            <button id="check-updates-btn" class="secondary-btn">Check for Updates</button>
-                            <span id="update-check-status" class="update-check-status"></span>
-                        </div>
-                        <div id="settings-update-progress" class="settings-update-row hidden">
-                            <div class="update-progress-bar"><div id="update-progress-fill" class="update-progress-fill"></div></div>
-                            <span id="update-progress-pct" class="update-check-status"></span>
-                        </div>
-                        <div id="settings-update-install" class="settings-update-row hidden">
-                            <button id="settings-install-btn" class="secondary-btn update-install-btn">Restart &amp; Install</button>
-                            <span id="settings-update-version" class="update-check-status"></span>
-                        </div>
                         <p class="settings-version">Version <span id="app-version"></span></p>
                     </div>
                     <div class="settings-section about-section">
@@ -274,8 +260,11 @@
             <div class="input-row">
                 <textarea id="message-input" placeholder="Ask about the Torah…" rows="1"></textarea>
                 <button id="send-btn" title="Send" disabled>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <svg class="send-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                    <svg class="stop-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
                     </svg>
                 </button>
             </div>
@@ -290,11 +279,6 @@
         </div>
         <div id="disclaimer-bar">Not developed by or affiliated with <a href="https://www.sefaria.org" target="_blank">Sefaria.org</a> &bull; Uses Sefaria's <a href="https://developers.sefaria.org/docs/the-sefaria-mcp" target="_blank">MCP</a> &bull; &copy; 2026 Jason Leznek<br>This app contains AI-generated content. Report inappropriate content to <a href="mailto:jleznek@leznekconsulting.onmicrosoft.com">jleznek@leznekconsulting.onmicrosoft.com</a></div>
         <div id="donate-bar"><a href="https://www.sefaria.org/ways-to-give" target="_blank">Support Sefaria &mdash; Donate</a></div>
-        <div id="update-bar" class="hidden">
-            <span id="update-text">An update is available</span>
-            <button id="update-action" class="update-btn">Restart to update</button>
-            <button id="update-dismiss" class="update-dismiss">&times;</button>
-        </div>
     </div><!-- end #app -->
 
     <!-- Draggable splitter -->

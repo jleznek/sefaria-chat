@@ -111,6 +111,7 @@ export class OpenAIProvider implements ChatProvider {
         systemPrompt: string,
         tools: ToolDeclaration[],
         onTextChunk: (text: string) => void,
+        signal?: AbortSignal,
     ): Promise<StreamResult> {
         const client = await this.getClient();
         const messages = this.convertHistory(history, systemPrompt);
@@ -131,7 +132,7 @@ export class OpenAIProvider implements ChatProvider {
             messages,
             tools: openaiTools,
             stream: true,
-        });
+        }, signal ? { signal } : {});
 
         let text = '';
         const toolCallsMap: Map<number, { id: string; name: string; args: string }> = new Map();
